@@ -1,14 +1,22 @@
 
   <header class="topbar">
-    <div class="brand">
-      <span class="brand-logo" aria-hidden="true">🧊</span>
-      <span class="brand-name">Lodówka<span class="accent">+</span></span>
+    <div class="brand-row">
+      <div class="brand">
+        <span class="brand-logo" aria-hidden="true">🧊</span>
+        <span class="brand-name">Lodówka<span class="accent">+</span></span>
+      </div>
+      <button class="house-btn" id="btnHouse" type="button" title="Domownicy i synchronizacja">
+        <span class="sync-dot" id="syncDot"></span>
+        <span class="avatars" id="houseAvatars"></span>
+        <span id="houseLabel">Lokalnie</span>
+      </button>
     </div>
     <nav class="tabs" role="tablist">
       <button class="tab active" data-view="fridge" role="tab">🥛 <span>Lodówka</span></button>
       <button class="tab" data-view="scan" role="tab">📷 <span>Skanuj</span></button>
       <button class="tab" data-view="meals" role="tab">🍳 <span>Posiłki</span></button>
       <button class="tab" data-view="ideas" role="tab">💡 <span>Sugestie</span></button>
+      <button class="tab" data-view="budget" role="tab">💰 <span>Budżet</span></button>
     </nav>
   </header>
 
@@ -23,6 +31,7 @@
         <div class="stats" id="stats"></div>
       </div>
 
+      <div id="migrateBox"></div>
       <div id="alerts"></div>
 
       <div class="toolbar">
@@ -120,6 +129,56 @@
       <div id="rescueBox"></div>
       <div class="grid ideas" id="ideaList"></div>
     </section>
+    <!-- ============ BUDŻET ============ -->
+    <section id="view-budget" class="view">
+      <div class="hero">
+        <div>
+          <h1>Budżet i oszczędności</h1>
+          <p class="muted">Paragony, wydatki i to, ile zyskujesz, gotując z tego, co masz w lodówce.</p>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="btnReceiptPhoto" hidden>📸 Zdjęcie paragonu</button>
+          <input type="file" accept="image/*" capture="environment" id="receiptFile" hidden>
+          <button class="btn" id="btnReceiptManual">🧾 Wpisz paragon</button>
+        </div>
+      </div>
+      <div class="chips" id="periodChips">
+        <button class="chip active" data-period="month">Ten miesiąc</button>
+        <button class="chip" data-period="prev">Poprzedni miesiąc</button>
+        <button class="chip" data-period="all">Cały czas</button>
+      </div>
+      <div class="kpis" id="kpis"></div>
+      <div class="empty" id="budgetEmpty" hidden>
+        <div class="empty-icon">🧾</div>
+        <h3>Brak paragonów w tym okresie</h3>
+        <p class="muted">Zrób zdjęcie paragonu albo wpisz go ręcznie. Produkty trafią prosto do lodówki, a wydatki do budżetu.</p>
+      </div>
+      <div class="budget-grid">
+        <div class="card"><h3>Skąd oszczędności</h3><div id="savingsBreakdown"></div></div>
+        <div class="card"><h3>Gdzie wydajesz</h3><div id="storeBars"></div></div>
+        <div class="card"><h3>Gdzie kupisz taniej</h3><p class="muted small">Te same produkty z Twoich paragonów w różnych sklepach.</p><div id="priceCompare"></div></div>
+        <div class="card"><h3>Wydatki wg kategorii</h3><div id="catBars"></div></div>
+      </div>
+      <div class="card goals-card">
+        <div class="card-head"><h3>🎯 Na co odkładasz</h3><button class="btn small" id="btnAddGoal">+ Nowy cel</button></div>
+        <p id="availableLine" class="available"></p>
+        <div id="goalList" class="goal-list"></div>
+        <h4>Jak wykorzystać zaoszczędzone pieniądze</h4>
+        <ul id="moneyIdeas" class="tips"></ul>
+        <button class="btn small" id="btnAskClaude" hidden>✨ Poproś Claude'a o pomysły</button>
+        <div id="claudeIdeas" class="claude-ideas"></div>
+      </div>
+      <div class="budget-grid two">
+        <div class="card"><h3>Historia</h3><ul id="history" class="history"></ul></div>
+        <div class="card">
+          <h3>Ustawienia</h3>
+          <label for="eatOutPrice">Ile kosztuje obiad na mieście (zł za porcję)
+            <input type="number" id="eatOutPrice" min="0" step="1">
+          </label>
+          <p class="muted small">Na tej podstawie liczymy, ile oszczędzasz za każdym razem, gdy gotujesz w domu.</p>
+        </div>
+      </div>
+    </section>
   </main>
 
   <footer class="footer muted small">
@@ -154,6 +213,14 @@
           </select>
         </label>
       </div>
+      <div class="form-row">
+        <label>Cena (zł)
+          <input name="price" type="number" min="0" step="0.01" placeholder="np. 3,49">
+        </label>
+        <label>Sklep
+          <input name="store" list="storeList" maxlength="40" placeholder="np. Biedronka">
+        </label>
+      </div>
       <label>Data ważności
         <input name="expiry" type="date" required>
       </label>
@@ -166,8 +233,13 @@
       </div>
       <input type="hidden" name="code">
       <input type="hidden" name="id">
+      <div class="consume-row" id="consumeRow" hidden>
+        <span class="muted small">Produkt się skończył?</span>
+        <button class="btn small" type="button" id="btnEaten">✓ Zjedzone</button>
+        <button class="btn small danger" type="button" id="btnWasted">🗑 Wyrzucone</button>
+      </div>
       <div class="modal-actions">
-        <button class="btn danger" type="button" id="btnDeleteProduct" hidden>Usuń</button>
+        <button class="btn danger ghost" type="button" id="btnDeleteProduct" hidden>Usuń</button>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate>Anuluj</button>
         <button class="btn primary" value="save" id="btnSaveProduct">Zapisz</button>
@@ -219,6 +291,97 @@
       <button class="btn primary" id="btnRecipeToMeal">Dodaj jako posiłek</button>
     </div>
   </dialog>
+
+  <!-- ============ MODAL: paragon ============ -->
+  <dialog id="receiptDialog" class="modal wide">
+    <form method="dialog" id="receiptForm">
+      <h2 id="receiptTitle">Paragon</h2>
+      <div class="scanned-info" id="receiptStatus" hidden></div>
+      <div class="form-row">
+        <label>Sklep
+          <input name="store" list="storeList" required maxlength="40" placeholder="np. Lidl">
+        </label>
+        <label>Data zakupów
+          <input name="date" type="date" required>
+        </label>
+      </div>
+      <div class="receipt-head small muted"><span>Produkt</span><span>Ilość</span><span>Cena zł</span><span>Kategoria</span><span title="Dodaj do lodówki">🧊</span><span></span></div>
+      <div class="receipt-items" id="receiptItems"></div>
+      <div class="row">
+        <button type="button" class="btn small" id="btnAddItem">+ Pozycja</button>
+        <span class="spacer"></span>
+        <span class="receipt-total">Razem: <b id="receiptTotal">0,00 zł</b></span>
+      </div>
+      <p class="muted small" id="receiptFridgeHint">Zaznaczone 🧊 pozycje trafią do lodówki z ceną i datą ważności dobraną do kategorii.</p>
+      <input type="hidden" name="id">
+      <div class="modal-actions">
+        <button class="btn danger ghost" type="button" id="btnDeleteReceipt" hidden>Usuń</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save">Zapisz paragon</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL: cel ============ -->
+  <dialog id="goalDialog" class="modal">
+    <form method="dialog" id="goalForm">
+      <h2>Nowy cel oszczędnościowy</h2>
+      <div class="quick-dates" id="goalPresets">
+        <button type="button" data-g="🏖️|Wakacje|2000">🏖️ Wakacje</button>
+        <button type="button" data-g="🛟|Poduszka finansowa|5000">🛟 Poduszka finansowa</button>
+        <button type="button" data-g="🍽️|Kolacja na mieście|200">🍽️ Kolacja na mieście</button>
+        <button type="button" data-g="🎁|Prezent|300">🎁 Prezent</button>
+        <button type="button" data-g="🛒|Zapas na promocji|150">🛒 Zapas na promocji</button>
+      </div>
+      <div class="form-row">
+        <label>Nazwa
+          <input name="name" required maxlength="40" placeholder="np. Wakacje">
+        </label>
+        <label>Emoji
+          <input name="emoji" maxlength="4" placeholder="🎯">
+        </label>
+      </div>
+      <label>Kwota docelowa (zł)
+        <input name="target" type="number" min="1" step="1" required>
+      </label>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save">Dodaj cel</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL: wpłata na cel ============ -->
+  <dialog id="depositDialog" class="modal">
+    <form method="dialog" id="depositForm">
+      <h2 id="depositTitle">Odłóż na cel</h2>
+      <p class="muted small" id="depositHint"></p>
+      <label>Kwota (zł)
+        <input name="amount" type="number" min="0.01" step="0.01" required>
+      </label>
+      <input type="hidden" name="id">
+      <div class="modal-actions">
+        <button class="btn danger ghost" type="button" id="btnDeleteGoal">Usuń cel</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save">Odłóż</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL: domownicy ============ -->
+  <dialog id="houseDialog" class="modal">
+    <h2>👥 Wspólna lodówka</h2>
+    <div id="houseBody"></div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="btn primary" id="btnCloseHouse">Zamknij</button>
+    </div>
+  </dialog>
+
+  <datalist id="storeList"></datalist>
 
   <dialog id="confirmDialog" class="modal">
     <p id="confirmText"></p>

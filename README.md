@@ -12,7 +12,10 @@ Strona/aplikacja webowa do zarządzania zawartością lodówki.
 - **Posiłki** – tworzenie dań z produktów z lodówki, data „zjedz do” (wg najszybciej psującego się składnika), sugestie do każdego dania, przycisk „Ugotowane” odejmuje zużyte składniki.
 - **Sugestie** – przepisy dopasowane do zawartości lodówki (śniadanie/obiad/kolacja/przekąska), w pierwszej kolejności ratujące produkty z kończącą się datą, z krokami przygotowania i wskazówkami.
 
-Dane zapisywane są lokalnie w przeglądarce (localStorage).
+- **Budżet** – paragony (zdjęcie odczytywane przez Claude'a w wersji online albo wpisane ręcznie), wydatki wg sklepów i kategorii, porównanie cen tych samych produktów w różnych sklepach, oszczędności z gotowania w domu i z uratowanego jedzenia, straty na zmarnowanym, bilans, cele oszczędnościowe i pomysły, na co przeznaczyć pieniądze.
+- **Wspólna lodówka** – w wersji online (claude.ai) wszyscy, którym udostępnisz stronę z uprawnieniem Współtwórcy lub Edytora, widzą i zmieniają te same dane na żywo.
+
+Otwarta jako zwykły plik strona zapisuje dane lokalnie w przeglądarce (localStorage).
 
 ## Uruchomienie
 Najprościej: otwórz plik `index.html` (to jeden samodzielny plik – style i skrypty są w środku).
