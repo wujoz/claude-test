@@ -205,3 +205,97 @@ const RESCUE_TIPS = {
   mrozonki: 'Nie zamrażaj ponownie po rozmrożeniu.',
   inne:     'Zaplanuj posiłek z tym produktem w najbliższych dniach.',
 };
+
+/* Wartości odżywcze na 100 g (lub 100 ml): kcal, białko (p), tłuszcz (f), węglowodany (c).
+   unit = waga 1 sztuki w gramach. Dopasowanie po początku słowa w nazwie (bez polskich znaków). */
+const NUTRITION = [
+  { keys: ['jaj'], kcal: 140, p: 12.5, f: 9.7, c: 0.7, unit: 60 },
+  { keys: ['twarog'], kcal: 133, p: 18, f: 4.7, c: 3.5, unit: 250 },
+  { keys: ['jogurt grecki'], kcal: 120, p: 4, f: 10, c: 4, unit: 400 },
+  { keys: ['jogurt'], kcal: 61, p: 4.3, f: 2.5, c: 5.5, unit: 400 },
+  { keys: ['kefir', 'maslank'], kcal: 50, p: 3.4, f: 2, c: 4.7, unit: 400 },
+  { keys: ['mleko roslin', 'napoj owsian', 'napoj sojow', 'mleko owsian', 'mleko sojow'], kcal: 45, p: 1.5, f: 1.5, c: 6, unit: 1000 },
+  { keys: ['mleko'], kcal: 50, p: 3.4, f: 2, c: 4.8, unit: 1000 },
+  { keys: ['smietan'], kcal: 190, p: 2.5, f: 18, c: 3.6, unit: 200 },
+  { keys: ['maslo orzech'], kcal: 600, p: 25, f: 50, c: 15, unit: 350 },
+  { keys: ['maslo'], kcal: 735, p: 0.7, f: 82, c: 0.7, unit: 200 },
+  { keys: ['mozzarell'], kcal: 250, p: 18, f: 19, c: 1, unit: 125 },
+  { keys: ['ser zolty', 'gouda', 'edam', 'cheddar', 'parmezan', 'ser'], kcal: 356, p: 25, f: 27, c: 2, unit: 250 },
+  { keys: ['piers', 'kurczak', 'indyk', 'filet'], kcal: 110, p: 23, f: 1.5, c: 0, unit: 500 },
+  { keys: ['wolow'], kcal: 190, p: 20, f: 12, c: 0, unit: 500 },
+  { keys: ['wieprz', 'mielon'], kcal: 240, p: 18, f: 19, c: 0, unit: 500 },
+  { keys: ['kielbas', 'parowk'], kcal: 300, p: 13, f: 27, c: 1, unit: 300 },
+  { keys: ['szynk'], kcal: 110, p: 19, f: 3, c: 1, unit: 150 },
+  { keys: ['boczek'], kcal: 450, p: 13, f: 45, c: 0, unit: 200 },
+  { keys: ['losos'], kcal: 208, p: 20, f: 13, c: 0, unit: 250 },
+  { keys: ['tunczyk'], kcal: 116, p: 26, f: 1, c: 0, unit: 170 },
+  { keys: ['dorsz', 'ryb'], kcal: 82, p: 18, f: 0.7, c: 0, unit: 300 },
+  { keys: ['tofu'], kcal: 145, p: 15, f: 9, c: 2, unit: 180 },
+  { keys: ['pomidor'], kcal: 18, p: 0.9, f: 0.2, c: 3.9, unit: 120 },
+  { keys: ['passata', 'koncentrat'], kcal: 30, p: 1.4, f: 0.2, c: 5.5, unit: 500 },
+  { keys: ['szpinak'], kcal: 23, p: 2.9, f: 0.4, c: 3.6, unit: 150 },
+  { keys: ['papryk'], kcal: 31, p: 1, f: 0.3, c: 6, unit: 150 },
+  { keys: ['cebul', 'szczypior'], kcal: 40, p: 1.1, f: 0.1, c: 9.3, unit: 100 },
+  { keys: ['czosn'], kcal: 150, p: 6.4, f: 0.5, c: 33, unit: 5 },
+  { keys: ['marchew'], kcal: 41, p: 0.9, f: 0.2, c: 10, unit: 80 },
+  { keys: ['ziemniak'], kcal: 77, p: 2, f: 0.1, c: 17, unit: 150 },
+  { keys: ['ogor'], kcal: 15, p: 0.7, f: 0.1, c: 3.6, unit: 150 },
+  { keys: ['salat', 'rukol'], kcal: 15, p: 1.4, f: 0.2, c: 2.9, unit: 200 },
+  { keys: ['brokul'], kcal: 34, p: 2.8, f: 0.4, c: 7, unit: 400 },
+  { keys: ['cukini'], kcal: 17, p: 1.2, f: 0.3, c: 3.1, unit: 250 },
+  { keys: ['pieczark'], kcal: 22, p: 3.1, f: 0.3, c: 3.3, unit: 20 },
+  { keys: ['rzodkiew'], kcal: 16, p: 0.7, f: 0.1, c: 3.4, unit: 15 },
+  { keys: ['awokado'], kcal: 160, p: 2, f: 15, c: 9, unit: 170 },
+  { keys: ['banan'], kcal: 89, p: 1.1, f: 0.3, c: 23, unit: 120 },
+  { keys: ['jablk'], kcal: 52, p: 0.3, f: 0.2, c: 14, unit: 180 },
+  { keys: ['gruszk'], kcal: 57, p: 0.4, f: 0.1, c: 15, unit: 170 },
+  { keys: ['pomarancz', 'mandaryn'], kcal: 47, p: 0.9, f: 0.1, c: 12, unit: 150 },
+  { keys: ['truskawk', 'malin', 'borowk'], kcal: 40, p: 0.8, f: 0.4, c: 9, unit: 250 },
+  { keys: ['chleb', 'bulk', 'bagiet', 'pieczyw', 'kajzer', 'rogal'], kcal: 240, p: 7, f: 2, c: 47, unit: 500 },
+  { keys: ['tortill'], kcal: 300, p: 8, f: 7, c: 50, unit: 60 },
+  { keys: ['makaron', 'spaghetti', 'penne'], kcal: 360, p: 12, f: 1.5, c: 72, unit: 500 },
+  { keys: ['ryz'], kcal: 350, p: 7, f: 0.7, c: 78, unit: 1000 },
+  { keys: ['kasz'], kcal: 345, p: 12, f: 2.5, c: 70, unit: 400 },
+  { keys: ['platki', 'owsian', 'musli'], kcal: 370, p: 13, f: 7, c: 60, unit: 500 },
+  { keys: ['maka'], kcal: 350, p: 10, f: 1.2, c: 73, unit: 1000 },
+  { keys: ['fasol', 'ciecierzyc', 'soczewic'], kcal: 110, p: 7, f: 0.5, c: 18, unit: 400 },
+  { keys: ['orzech', 'migdal'], kcal: 620, p: 18, f: 55, c: 12, unit: 200 },
+  { keys: ['olej', 'oliw'], kcal: 884, p: 0, f: 100, c: 0, unit: 1000 },
+  { keys: ['cukier', 'miod'], kcal: 380, p: 0.3, f: 0, c: 95, unit: 1000 },
+  { keys: ['czekolad'], kcal: 540, p: 7, f: 31, c: 56, unit: 100 },
+  { keys: ['chips', 'ciastk'], kcal: 500, p: 6, f: 25, c: 60, unit: 150 },
+  { keys: ['sos sojow', 'soj'], kcal: 60, p: 8, f: 0, c: 6, unit: 150 },
+  { keys: ['ketchup'], kcal: 100, p: 1.5, f: 0.2, c: 23, unit: 500 },
+  { keys: ['majonez'], kcal: 680, p: 1, f: 75, c: 2, unit: 400 },
+  { keys: ['sok'], kcal: 45, p: 0.5, f: 0.1, c: 10.5, unit: 1000 },
+  { keys: ['woda'], kcal: 0, p: 0, f: 0, c: 0, unit: 1500 },
+  { keys: ['cola', 'napoj', 'lemoniad'], kcal: 42, p: 0, f: 0, c: 10.6, unit: 500 },
+];
+/* Średnie wartości dla kategorii, gdy nie znamy produktu (szacunek) */
+const NUTRITION_BY_CAT = {
+  nabial: { kcal: 150, p: 10, f: 9, c: 5, unit: 250 }, mieso: { kcal: 200, p: 20, f: 12, c: 0, unit: 400 },
+  warzywa: { kcal: 30, p: 1.5, f: 0.3, c: 6, unit: 150 }, owoce: { kcal: 55, p: 0.8, f: 0.3, c: 13, unit: 150 },
+  pieczywo: { kcal: 250, p: 8, f: 3, c: 48, unit: 400 }, suche: { kcal: 350, p: 10, f: 3, c: 65, unit: 500 },
+  napoje: { kcal: 40, p: 0, f: 0, c: 10, unit: 1000 }, sosy: { kcal: 80, p: 2, f: 3, c: 10, unit: 300 },
+  mrozonki: { kcal: 150, p: 5, f: 6, c: 18, unit: 450 }, inne: { kcal: 150, p: 5, f: 5, c: 20, unit: 250 },
+};
+
+/* Gramatura składników na 1 porcję (w kolejności składników przepisu) */
+const RECIPE_GRAMS = {
+  omlet: [120, 50, 30, 5], jajecznica: [120, 10, 60, 10], spaghetti: [100, 125, 40, 20],
+  'kurczak-ryz': [150, 70, 100, 40], leczo: [200, 150, 60, 60], kanapki: [80, 40, 60, 10],
+  smoothie: [120, 150, 20], twarozek: [125, 50, 60, 15], nalesniki: [125, 50, 60, 75],
+  'ryz-warzywa': [70, 60, 150, 10], 'zupa-pomidorowa': [150, 30, 30, 30], salatka: [120, 60, 100, 60],
+  owsianka: [50, 200, 60, 30], 'placki-bananowe': [120, 100, 50],
+};
+RECIPES.forEach((r) => (RECIPE_GRAMS[r.id] || []).forEach((g, i) => { if (r.ingredients[i]) r.ingredients[i].g = g; }));
+
+/* Rodzaje diet */
+const DIET_TYPES = {
+  standard: { label: 'Zwykła (zbilansowana)' },
+  wysokobialkowa: { label: 'Wysokobiałkowa' },
+  wege: { label: 'Wegetariańska', gen: 'wegetariańskiej', excludeCats: ['mieso'] },
+  wegan: { label: 'Wegańska', gen: 'wegańskiej', excludeCats: ['mieso', 'nabial'] },
+  keto: { label: 'Keto / niskowęglowodanowa', maxCarbsPerMeal: 15 },
+};
+const MEAL_SHARE = { 'śniadanie': 0.25, 'obiad': 0.35, 'kolacja': 0.25, 'przekąska': 0.15 };

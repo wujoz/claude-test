@@ -418,3 +418,47 @@ button.hist-row:hover b { color: var(--primary); }
   .tab { font-size: .74rem; }
   .house-btn #houseLabel { max-width: 120px; overflow: hidden; text-overflow: ellipsis; }
 }
+
+/* ---------- Dieta i makro ---------- */
+.macros { display: inline-flex; flex-wrap: wrap; gap: .25rem .6rem; align-items: baseline; font-variant-numeric: tabular-nums; }
+.macros b { color: var(--text); }
+.macros span { color: var(--muted); }
+.idea-macros, .meal-macros { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.meal-macros { margin-top: .7rem; font-size: .88rem; }
+.macro-box { background: var(--surface-2); border-radius: 12px; padding: .7rem .85rem; display: grid; gap: .4rem; margin-top: .4rem; }
+.macro-preview { background: var(--surface-2); border-radius: 12px; padding: .6rem .8rem; margin: -.2rem 0 .8rem; font-size: .88rem; display: grid; gap: .35rem; }
+.macro-preview:empty { display: none; }
+.macro-preview .row { margin: 0; }
+.fit-issues { margin: .35rem 0 0; padding-left: 1.1rem; font-size: .85rem; color: var(--soon); }
+.fit-issues li { padding: .1rem 0; }
+.diet-cta { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; box-shadow: none; background: var(--primary-soft); border-color: color-mix(in srgb, var(--primary) 30%, var(--border)); }
+.diet-cta h3 { margin-bottom: .2rem; }
+.diet-cta p { margin: 0; }
+.diet-panel { margin-bottom: 1rem; box-shadow: none; display: grid; gap: .9rem; }
+.dbars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .9rem; }
+.dbar .bar-label b { font-size: .85rem; }
+.dbar.over .bar > span { background: var(--bad); }
+.dbar.over .muted { color: var(--bad); }
+.diary { list-style: none; margin: 0; padding: 0; display: grid; gap: .25rem; }
+.diary li { display: flex; justify-content: space-between; align-items: center; gap: .5rem; padding: .3rem .5rem; background: var(--surface-2); border-radius: 8px; }
+.picks { display: flex; flex-wrap: wrap; gap: .4rem; align-items: center; }
+.picks .chip { font-size: .8rem; padding: .3rem .7rem; }
+#ideaSort { width: auto; margin-left: auto; padding: .4rem .7rem; font-size: .88rem; border-radius: 99px; }
+.nut-box { margin: 0 0 .7rem; background: var(--surface-2); border-radius: 10px; padding: .55rem .75rem; }
+.nut-box summary { font-size: .88rem; color: var(--text); }
+.nut-box p { margin: .4rem 0; }
+.nut-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: .4rem; }
+.nut-grid.four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.nut-grid label { margin: 0; font-size: .78rem; }
+.nut-grid input { padding: .4rem .5rem; }
+.form-row.three { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.targets { background: var(--surface-2); border-radius: 12px; padding: .7rem .85rem; }
+.targets-head { display: flex; justify-content: space-between; align-items: center; gap: .5rem; margin-bottom: .4rem; }
+.targets-head h4 { margin: 0; }
+@media (max-width: 760px) {
+  .dbars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nut-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nut-grid.four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .form-row.three { grid-template-columns: 1fr 1fr; }
+  #ideaSort { margin-left: 0; width: 100%; }
+}

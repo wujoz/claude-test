@@ -13,6 +13,7 @@ Strona/aplikacja webowa do zarządzania zawartością lodówki.
 - **Sugestie** – przepisy dopasowane do zawartości lodówki (śniadanie/obiad/kolacja/przekąska), w pierwszej kolejności ratujące produkty z kończącą się datą, z krokami przygotowania i wskazówkami.
 
 - **Budżet** – paragony (zdjęcie odczytywane przez Claude'a w wersji online albo wpisane ręcznie), wydatki wg sklepów i kategorii, porównanie cen tych samych produktów w różnych sklepach, oszczędności z gotowania w domu i z uratowanego jedzenia, straty na zmarnowanym, bilans, cele oszczędnościowe i pomysły, na co przeznaczyć pieniądze.
+- **Dieta i makro** – każdy ustawia własną dietę (cel, aktywność, rodzaj: zwykła, wysokobiałkowa, wegetariańska, wegańska, keto); kalkulator liczy kalorie i makro. Posiłki i przepisy pokazują kcal, białko, tłuszcz i węglowodany na porcję i ocenę, czy pasują do diety. Dziennik pokazuje, ile zostało na dziś, i podpowiada przepisy na resztę dnia.
 - **Wspólna lodówka** – w wersji online (claude.ai) wszyscy, którym udostępnisz stronę z uprawnieniem Współtwórcy lub Edytora, widzą i zmieniają te same dane na żywo.
 
 Otwarta jako zwykły plik strona zapisuje dane lokalnie w przeglądarce (localStorage).

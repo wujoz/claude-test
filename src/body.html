@@ -103,6 +103,7 @@
         </div>
         <button class="btn primary" id="btnNewMeal">+ Nowy posiłek</button>
       </div>
+      <div id="dietPanel"></div>
       <div class="meal-list" id="mealList"></div>
       <div class="empty" id="mealsEmpty" hidden>
         <div class="empty-icon">🍽️</div>
@@ -125,6 +126,10 @@
         <button class="chip" data-type="obiad">🍲 Obiad</button>
         <button class="chip" data-type="kolacja">🌙 Kolacja</button>
         <button class="chip" data-type="przekąska">🥨 Przekąska</button>
+        <select id="ideaSort" aria-label="Sortowanie przepisów">
+          <option value="fridge">Najpierw: z tego, co mam</option>
+          <option value="diet">Najpierw: pasujące do diety</option>
+        </select>
       </div>
       <div id="rescueBox"></div>
       <div class="grid ideas" id="ideaList"></div>
@@ -231,6 +236,17 @@
         <button type="button" data-days="30">+miesiąc</button>
         <button type="button" data-days="180">+pół roku</button>
       </div>
+      <details class="nut-box" id="nutBox">
+        <summary>Wartości odżywcze <span class="muted small" id="nutSummary"></span></summary>
+        <p class="muted small">Na 100 g (lub 100 ml), z etykiety. Uzupełniliśmy szacunkowe wartości — popraw je, jeśli masz dokładne.</p>
+        <div class="nut-grid">
+          <label>kcal<input name="nkcal" type="number" min="0" step="any"></label>
+          <label>Białko g<input name="np" type="number" min="0" step="any"></label>
+          <label>Tłuszcz g<input name="nf" type="number" min="0" step="any"></label>
+          <label>Węgle g<input name="nc" type="number" min="0" step="any"></label>
+          <label>1 szt. waży (g)<input name="nunit" type="number" min="0" step="any"></label>
+        </div>
+      </details>
       <input type="hidden" name="code">
       <input type="hidden" name="id">
       <div class="consume-row" id="consumeRow" hidden>
@@ -270,6 +286,7 @@
       <h4>Składniki z lodówki</h4>
       <p class="muted small">Zaznacz produkty i podaj, ile zużyjesz.</p>
       <div class="ingredient-picker" id="ingredientPicker"></div>
+      <div class="macro-preview" id="mealMacroPreview"></div>
       <label>Notatki / sposób przygotowania
         <textarea name="notes" rows="3" placeholder="Opcjonalnie"></textarea>
       </label>
@@ -379,6 +396,63 @@
       <span class="spacer"></span>
       <button class="btn primary" id="btnCloseHouse">Zamknij</button>
     </div>
+  </dialog>
+
+  <!-- ============ MODAL: dieta ============ -->
+  <dialog id="dietDialog" class="modal wide">
+    <form method="dialog" id="dietForm">
+      <h2>🥗 Twoja dieta</h2>
+      <p class="muted small">Dieta jest Twoja prywatna — domownicy jej nie widzą, a każdy może ustawić własną.</p>
+      <div class="form-row three">
+        <label>Płeć
+          <select name="sex"><option value="f">Kobieta</option><option value="m">Mężczyzna</option></select>
+        </label>
+        <label>Wiek
+          <input name="age" type="number" min="12" max="100" value="30">
+        </label>
+        <label>Wzrost (cm)
+          <input name="height" type="number" min="120" max="230" value="170">
+        </label>
+      </div>
+      <div class="form-row three">
+        <label>Waga (kg)
+          <input name="weight" type="number" min="30" max="300" step="0.1" value="70">
+        </label>
+        <label>Aktywność
+          <select name="activity">
+            <option value="1.2">Siedząca</option>
+            <option value="1.375" selected>Lekka (1–3 treningi)</option>
+            <option value="1.55">Średnia (3–5 treningów)</option>
+            <option value="1.725">Wysoka (codziennie)</option>
+          </select>
+        </label>
+        <label>Cel
+          <select name="goal">
+            <option value="cut">Redukcja (chudnięcie)</option>
+            <option value="keep" selected>Utrzymanie wagi</option>
+            <option value="bulk">Budowa masy</option>
+          </select>
+        </label>
+      </div>
+      <label>Rodzaj diety
+        <select name="type" id="dietType"></select>
+      </label>
+      <div class="targets">
+        <div class="targets-head"><h4>Dzienne cele</h4><button type="button" class="btn small" id="btnCalcDiet">↻ Przelicz z danych</button></div>
+        <div class="nut-grid four">
+          <label>kcal<input name="kcal" type="number" min="800" max="6000" required></label>
+          <label>Białko g<input name="p" type="number" min="0" required></label>
+          <label>Tłuszcz g<input name="f" type="number" min="0" required></label>
+          <label>Węgle g<input name="c" type="number" min="0" required></label>
+        </div>
+        <p class="muted small" id="dietCalcNote"></p>
+      </div>
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save">Zapisz dietę</button>
+      </div>
+    </form>
   </dialog>
 
   <datalist id="storeList"></datalist>

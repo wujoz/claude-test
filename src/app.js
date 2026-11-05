@@ -59,6 +59,93 @@
     return 'inne';
   }
 
+  // ================= Makroskładniki =================
+  const ZERO = { kcal: 0, p: 0, f: 0, c: 0 };
+  const addM = (a, b) => ({ kcal: a.kcal + b.kcal, p: a.p + b.p, f: a.f + b.f, c: a.c + b.c });
+  const divM = (m, k) => ({ kcal: m.kcal / k, p: m.p / k, f: m.f / k, c: m.c / k });
+  function lookupNut(name, category) {
+    const n = ` ${norm(name)} `;
+    for (const e of NUTRITION) if (e.keys.some((k) => n.includes(' ' + k))) return { kcal: e.kcal, p: e.p, f: e.f, c: e.c, unit: e.unit, est: true };
+    return { ...(NUTRITION_BY_CAT[category] || NUTRITION_BY_CAT.inne), est: true, generic: true };
+  }
+  const nutOf = (p) => p.nut || lookupNut(p.name, p.category);
+  function grams(qty, unit, nut) {
+    if (unit === 'g' || unit === 'ml') return qty;
+    if (unit === 'kg' || unit === 'l') return qty * 1000;
+    return qty * ((nut && nut.unit) || 100);
+  }
+  function macrosFor(qty, unit, nut) {
+    const k = grams(qty, unit, nut) / 100;
+    return { kcal: (nut.kcal || 0) * k, p: (nut.p || 0) * k, f: (nut.f || 0) * k, c: (nut.c || 0) * k };
+  }
+  const r0 = (n) => Math.round(n);
+  const macroLine = (m) => `<span class="macros"><b>${r0(m.kcal)} kcal</b><span>B ${r0(m.p)} g</span><span>T ${r0(m.f)} g</span><span>W ${r0(m.c)} g</span></span>`;
+
+  // ================= Dieta (prywatna dla każdej osoby) =================
+  let diet = null;                       // { sex, age, height, weight, activity, goal, type, kcal, p, f, c }
+  let diary = { date: todayISO(), entries: [] };
+  const DIET_KEY = 'lodowka-plus-diet';
+  const diaryKey = () => 'lodowka-plus-day-' + todayISO();
+  try { diet = JSON.parse(localStorage.getItem(DIET_KEY)) || null; } catch (_) { }
+  try { const d = JSON.parse(localStorage.getItem(diaryKey())); if (d && d.entries) diary = d; } catch (_) { }
+  const personalDb = () => sync.db && sync.myId ? sync.db.collection('data/users/' + sync.myId) : null;
+  function saveDiet(d) {
+    diet = d;
+    const col = personalDb();
+    if (col) queueWrite('diet', () => col.doc('diet').set(clean(d)));
+    else try { localStorage.setItem(DIET_KEY, JSON.stringify(d)); } catch (_) { }
+  }
+  function saveDiary() {
+    diary.date = todayISO();
+    const col = personalDb();
+    if (col) { const body = clean(diary); queueWrite('day', () => col.doc('day-' + diary.date).set(body)); }
+    else try { localStorage.setItem(diaryKey(), JSON.stringify(diary)); } catch (_) { }
+  }
+  function logEaten(name, m) {
+    if (diary.date !== todayISO()) diary = { date: todayISO(), entries: [] };
+    diary.entries.push({ id: uid(), name, kcal: round2(m.kcal), p: round2(m.p), f: round2(m.f), c: round2(m.c), at: Date.now() });
+    saveDiary();
+  }
+  const eatenToday = () => (diary.date === todayISO() ? diary.entries : []).reduce((a, e) => addM(a, e), ZERO);
+
+  function calcTargets(d) {
+    const bmr = 10 * d.weight + 6.25 * d.height - 5 * d.age + (d.sex === 'm' ? 5 : -161);
+    const tdee = bmr * d.activity;
+    const kcal = Math.round((tdee * ({ cut: 0.85, keep: 1, bulk: 1.1 }[d.goal] || 1)) / 10) * 10;
+    let perKg = { cut: 2, keep: 1.6, bulk: 1.8 }[d.goal] || 1.6;
+    if (d.type === 'wysokobialkowa') perKg = 2.2;
+    const p = Math.round(d.weight * perKg);
+    let f, c;
+    if (d.type === 'keto') { c = 30; f = Math.round((kcal - p * 4 - c * 4) / 9); }
+    else { f = Math.round((kcal * 0.27) / 9); c = Math.round((kcal - p * 4 - f * 9) / 4); }
+    return { kcal, p, f: Math.max(0, f), c: Math.max(0, c), bmr: Math.round(bmr), tdee: Math.round(tdee) };
+  }
+  const mealTarget = (type) => { const sh = MEAL_SHARE[type] ?? 0.3; return { kcal: diet.kcal * sh, p: diet.p * sh, f: diet.f * sh, c: diet.c * sh }; };
+
+  /* Ocena, czy porcja pasuje do diety: per = makro na porcję, cats = [{cat, name}] */
+  function dietFit(per, type, cats) {
+    if (!diet) return null;
+    const t = mealTarget(type);
+    const dt = DIET_TYPES[diet.type] || {};
+    const issues = [], good = [];
+    let score = 100;
+    if (dt.excludeCats) {
+      const bad = [...new Set(cats.filter((x) => dt.excludeCats.includes(x.cat)).map((x) => x.name))];
+      if (bad.length) { issues.push(`Zawiera: ${bad.join(', ')} — nie pasuje do diety ${dt.gen || dt.label.toLowerCase()}.`); score -= 60; }
+    }
+    if (dt.maxCarbsPerMeal && per.c > dt.maxCarbsPerMeal) { issues.push(`${r0(per.c)} g węglowodanów — za dużo jak na keto (max ok. ${dt.maxCarbsPerMeal} g).`); score -= 40; }
+    const ratio = per.kcal / t.kcal;
+    if (ratio > 1.3) { issues.push(`${r0(per.kcal)} kcal — o ${r0((ratio - 1) * 100)}% więcej niż Twój cel na ${type} (${r0(t.kcal)} kcal). Zmniejsz porcję.`); score -= 25; }
+    else if (ratio < 0.6) { issues.push(`Tylko ${r0(per.kcal)} kcal — mało jak na ${type} (cel ok. ${r0(t.kcal)} kcal). Dodaj coś sycącego.`); score -= 15; }
+    else good.push(`kaloryczność w normie (${r0(per.kcal)} z ${r0(t.kcal)} kcal)`);
+    if (per.p < t.p * 0.7) { issues.push(`Mało białka: ${r0(per.p)} g z ok. ${r0(t.p)} g na ten posiłek.`); score -= 15; }
+    else good.push(`białko ${r0(per.p)} g`);
+    score -= Math.min(15, Math.abs(1 - ratio) * 30);
+    return { ok: !issues.length, issues, good, score: Math.max(0, Math.round(score)), target: t };
+  }
+  const fitBadge = (fit) => !fit ? '' : fit.ok ? '<span class="badge ok">✅ Pasuje do diety</span>'
+    : fit.score >= 60 ? '<span class="badge soon">⚠️ Prawie pasuje</span>' : '<span class="badge expired">✗ Nie pasuje do diety</span>';
+
   // ================= Stan =================
   const COLS = ['products', 'meals', 'receipts', 'events', 'goals'];
   const DEFAULT_SETTINGS = { eatOutPrice: 30 };
@@ -417,6 +504,8 @@
     pForm.expiry.value = data.expiry || addDays(data.days ?? CATEGORIES[category].shelfDays);
     pForm.code.value = data.code || '';
     pForm.id.value = isEdit ? p.id : '';
+    fillNut(isEdit ? nutOf(p) : (data.nut || lookupNut(data.name || '', category)));
+    $('#nutBox').dataset.touched = (isEdit && p.nut) || data.nut ? '1' : '';
     const info = $('#scannedInfo');
     if (scanned && scanned._source) {
       info.hidden = false;
@@ -429,6 +518,19 @@
     setTimeout(() => (pForm.name.value ? pForm.expiry : pForm.name).focus(), 50);
   }
 
+  function fillNut(n) {
+    pForm.nkcal.value = n.kcal ?? ''; pForm.np.value = n.p ?? ''; pForm.nf.value = n.f ?? ''; pForm.nc.value = n.c ?? ''; pForm.nunit.value = n.unit ?? '';
+    nutSummary();
+  }
+  function nutSummary() {
+    $('#nutSummary').textContent = pForm.nkcal.value ? `· ${pForm.nkcal.value} kcal, B ${pForm.np.value || 0} g na 100 g` : '';
+  }
+  $('#nutBox').addEventListener('input', () => { $('#nutBox').dataset.touched = '1'; nutSummary(); });
+  function refreshNutEstimate() {
+    if (!$('#nutBox').dataset.touched) fillNut(lookupNut(pForm.name.value, pForm.category.value));
+  }
+  pForm.category.addEventListener('change', refreshNutEstimate);
+  pForm.name.addEventListener('input', refreshNutEstimate);
   pForm.category.addEventListener('change', () => {
     if (!pForm.id.value) pForm.expiry.value = addDays(CATEGORIES[pForm.category.value].shelfDays);
   });
@@ -455,6 +557,9 @@
       store: f.store.value.trim(),
       unitPrice: price > 0 && qty > 0 ? price / qty : 0,
     };
+    if (f.nkcal.value !== '') {
+      entry.nut = { kcal: +f.nkcal.value || 0, p: +f.np.value || 0, f: +f.nf.value || 0, c: +f.nc.value || 0, unit: +f.nunit.value || 100 };
+    }
     if (f.id.value) {
       const old = productById(f.id.value);
       if (!(price > 0) && old.unitPrice && !f.price.value) entry.unitPrice = 0;
@@ -549,13 +654,16 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), 5000);
     try {
-      const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,product_name_pl,brands,categories_tags`, { signal: ctrl.signal });
+      const r = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json?fields=product_name,product_name_pl,brands,categories_tags,nutriments`, { signal: ctrl.signal });
       const j = await r.json();
       if (j.status !== 1 || !j.product) return null;
       const p = j.product;
       const name = [p.product_name_pl || p.product_name, p.brands && p.brands.split(',')[0]].filter(Boolean).join(' — ');
       if (!name) return null;
-      return { name, category: guessCategoryFromTags(p.categories_tags), qty: 1, unit: 'szt' };
+      const n = p.nutriments || {};
+      const out = { name, category: guessCategoryFromTags(p.categories_tags), qty: 1, unit: 'szt' };
+      if (n['energy-kcal_100g'] != null) out.nut = { kcal: round2(n['energy-kcal_100g']), p: round2(n.proteins_100g), f: round2(n.fat_100g), c: round2(n.carbohydrates_100g), unit: 100 };
+      return out;
     } catch (_) { return null; } finally { clearTimeout(timer); }
   }
   async function handleCode(raw) {
@@ -610,7 +718,17 @@
     const optHave = rows.filter((x) => x.ing.optional && x.product).length;
     const rescued = rows.filter((x) => x.product && daysLeft(x.product.expiry) <= 3).map((x) => x.product);
     const score = (have / required.length) * 100 + optHave * 5 + rescued.length * 15;
-    return { recipe: r, rows, have, need: required.length, rescued, score, pct: Math.round((have / required.length) * 100) };
+    // makro na porcję: składniki obowiązkowe + opcjonalne, które masz
+    let per = ZERO; const cats = [];
+    rows.forEach((x) => {
+      if (x.ing.optional && !x.product) return;
+      const cat = x.product ? x.product.category : guessCategoryFromName(x.ing.label);
+      const nut = x.product ? nutOf(x.product) : lookupNut(x.ing.label, cat);
+      per = addM(per, macrosFor(x.ing.g || 100, 'g', nut));
+      cats.push({ cat, name: x.product ? x.product.name : x.ing.label });
+    });
+    const fit = dietFit(per, r.type.includes('obiad') ? 'obiad' : r.type[0], cats);
+    return { recipe: r, rows, have, need: required.length, rescued, score, pct: Math.round((have / required.length) * 100), per, fit };
   }
   function bestRecipeForMeal(meal) {
     const names = meal.items.map((i) => ` ${norm(i.name)} `);
@@ -642,7 +760,9 @@
             <span class="muted small">${esc(RESCUE_TIPS[p.category] || RESCUE_TIPS.inne)}</span></li>`; }).join('')}
         </ul>
       </div>` : '';
-    const matches = RECIPES.filter((r) => ideaType === 'all' || r.type.includes(ideaType)).map(matchRecipe).sort((a, b) => b.score - a.score);
+    const byDiet = $('#ideaSort').value === 'diet' && diet;
+    const matches = RECIPES.filter((r) => ideaType === 'all' || r.type.includes(ideaType)).map(matchRecipe)
+      .sort((a, b) => byDiet ? (b.fit.score - a.fit.score) || (b.score - a.score) : b.score - a.score);
     $('#ideaList').innerHTML = matches.map((m) => {
       const r = m.recipe;
       const ready = m.have === m.need;
@@ -658,9 +778,15 @@
           ${m.rows.map((x) => `<span class="ing ${x.product ? 'have' : x.ing.optional ? 'opt' : 'miss'}">${x.product ? '✓' : x.ing.optional ? '○' : '✗'} ${esc(x.ing.label)}</span>`).join('')}
         </div>
         ${m.rescued.length ? `<div class="rescues small">♻️ Wykorzysta: ${m.rescued.map((p) => esc(p.name)).join(', ')}</div>` : ''}
+        <div class="idea-macros small">${macroLine(m.per)} <span class="muted">/ porcja</span></div>
+        ${m.fit ? `<div>${fitBadge(m.fit)}</div>` : ''}
       </article>`;
     }).join('') || '<p class="muted">Brak przepisów dla tego rodzaju posiłku.</p>';
   }
+  $('#ideaSort').addEventListener('change', () => {
+    if ($('#ideaSort').value === 'diet' && !diet) { toast('Najpierw ustaw swoją dietę'); $('#ideaSort').value = 'fridge'; openDietDialog(); return; }
+    renderIdeas();
+  });
   $('#ideaList').addEventListener('click', (e) => {
     const card = e.target.closest('[data-recipe]');
     if (card) openRecipe(card.dataset.recipe);
@@ -675,11 +801,16 @@
     $('#recipeBody').innerHTML = `
       <h2>${r.emoji} ${esc(r.name)}</h2>
       <p class="muted">⏱ ${r.time} min · ${r.type.join(', ')}</p>
+      <div class="macro-box">
+        <div>${macroLine(m.per)} <span class="muted small">na porcję (szacunkowo)</span></div>
+        ${m.fit ? `<div>${fitBadge(m.fit)}</div>${m.fit.issues.length ? `<ul class="fit-issues">${m.fit.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}` : '<p class="muted small">Ustaw dietę w zakładce Posiłki, a ocenimy, czy to danie do niej pasuje.</p>'}
+      </div>
       <h4>Składniki</h4>
       <ul class="recipe-ings">
         ${m.rows.map((x) => {
-          if (x.product) { const i = expiryInfo(x.product.expiry); return `<li class="have">✓ ${esc(x.ing.label)} — <i>${esc(x.product.name)}</i> <span class="badge ${i.cls}">${i.text}</span></li>`; }
-          return `<li class="${x.ing.optional ? 'opt' : 'miss'}">${x.ing.optional ? '○' : '✗'} ${esc(x.ing.label)} ${x.ing.optional ? '<span class="muted small">(opcjonalnie)</span>' : '<span class="muted small">— do kupienia</span>'}</li>`;
+          const g = x.ing.g ? ` <span class="muted small">${x.ing.g} g/porcja</span>` : '';
+          if (x.product) { const i = expiryInfo(x.product.expiry); return `<li class="have">✓ ${esc(x.ing.label)} — <i>${esc(x.product.name)}</i>${g} <span class="badge ${i.cls}">${i.text}</span></li>`; }
+          return `<li class="${x.ing.optional ? 'opt' : 'miss'}">${x.ing.optional ? '○' : '✗'} ${esc(x.ing.label)}${g} ${x.ing.optional ? '<span class="muted small">(opcjonalnie)</span>' : '<span class="muted small">— do kupienia</span>'}</li>`;
         }).join('')}
       </ul>
       <h4>Przygotowanie</h4>
@@ -694,7 +825,12 @@
     const m = currentRecipe; if (!m) return;
     rDialog.close();
     const preset = {};
-    m.rows.filter((x) => x.product).forEach((x) => { preset[x.product.id] = defaultPortion(x.product); });
+    m.rows.filter((x) => x.product).forEach((x) => {
+      const p = x.product, g = (x.ing.g || 100) * 2;
+      const nut = nutOf(p);
+      const qty = p.unit === 'g' || p.unit === 'ml' ? g : p.unit === 'kg' || p.unit === 'l' ? g / 1000 : Math.max(1, Math.round(g / ((nut.unit) || 100)));
+      preset[p.id] = round2(Math.min(p.qty, qty));
+    });
     openMealDialog(null, { name: m.recipe.name, type: m.recipe.type[0], notes: m.recipe.steps.join('\n'), preset });
   });
   function defaultPortion(p) {
@@ -730,6 +866,7 @@
           <span class="muted small">/ ${fmtNum(p.qty)} ${esc(p.unit)}</span></span>
       </label>`;
     }).join('') || '<p class="muted">Lodówka jest pusta.</p>';
+    updateMealPreview();
     mDialog.showModal();
   }
   $('#ingredientPicker').addEventListener('change', (e) => {
@@ -745,7 +882,8 @@
     const items = $$('#ingredientPicker [type=checkbox]:checked').map((cb) => {
       const p = productById(cb.dataset.pid);
       const qty = parseFloat($(`[data-qty="${cb.dataset.pid}"]`, mForm).value) || 0;
-      return { productId: p.id, name: p.name, emoji: p.emoji || catOf(p).emoji, qty, unit: p.unit, unitPrice: p.unitPrice || 0 };
+      const nut = nutOf(p);
+      return { productId: p.id, name: p.name, emoji: p.emoji || catOf(p).emoji, qty, unit: p.unit, unitPrice: p.unitPrice || 0, category: p.category, nut: { kcal: nut.kcal, p: nut.p, f: nut.f, c: nut.c, unit: nut.unit } };
     });
     if (!items.length) { toast('Wybierz przynajmniej jeden składnik'); return; }
     const data = { name: mForm.name.value.trim(), type: mForm.type.value, servings: parseInt(mForm.servings.value, 10) || 1, notes: mForm.notes.value.trim(), items };
@@ -755,6 +893,30 @@
     if (ok) toast('Zapisano posiłek');
     showView('meals');
   });
+
+  function mealMacros(items, servings) {
+    let tot = ZERO; const cats = [];
+    items.forEach((it) => {
+      const p = productById(it.productId);
+      const cat = it.category || (p && p.category) || guessCategoryFromName(it.name);
+      const nut = it.nut || (p && nutOf(p)) || lookupNut(it.name, cat);
+      tot = addM(tot, macrosFor(it.qty, it.unit, nut));
+      cats.push({ cat, name: it.name });
+    });
+    return { total: tot, per: divM(tot, Math.max(1, servings || 1)), cats };
+  }
+  function updateMealPreview() {
+    const items = $$('#ingredientPicker [type=checkbox]:checked').map((cb) => {
+      const p = productById(cb.dataset.pid);
+      return { productId: p.id, name: p.name, qty: parseFloat($(`[data-qty="${cb.dataset.pid}"]`, mForm).value) || 0, unit: p.unit, category: p.category };
+    });
+    const box = $('#mealMacroPreview');
+    if (!items.length) { box.innerHTML = ''; return; }
+    const mm = mealMacros(items, parseInt(mForm.servings.value, 10) || 1);
+    const fit = dietFit(mm.per, mForm.type.value, mm.cats);
+    box.innerHTML = `<div>Na porcję: ${macroLine(mm.per)}</div>${fit ? `<div class="row">${fitBadge(fit)}</div>${fit.issues.length ? `<ul class="fit-issues">${fit.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}` : ''}`;
+  }
+  ['input', 'change'].forEach((ev) => mForm.addEventListener(ev, (e) => { if (!e.target.matches('[name=name],[name=notes]')) updateMealPreview(); }));
 
   function mealStatus(meal) {
     let earliest = null, missing = 0, cost = 0;
@@ -791,12 +953,87 @@
     if (!out.length) out.push('👍 Wszystko gotowe — smacznego!');
     return { tips: out, recipe: r };
   }
+  function renderDietPanel() {
+    const el = $('#dietPanel');
+    if (!diet) {
+      el.innerHTML = `<div class="card diet-cta">
+        <div><h3>🥗 Dopasuj posiłki do swojej diety</h3>
+        <p class="muted small">Podaj wagę, wzrost i cel — policzymy Twoje kalorie i makro, a przy każdym daniu pokażemy, czy pasuje do diety.</p></div>
+        <button class="btn primary" data-diet-edit>Ustaw dietę</button></div>`;
+      return;
+    }
+    const eaten = eatenToday();
+    const rem = { kcal: diet.kcal - eaten.kcal, p: diet.p - eaten.p, f: diet.f - eaten.f, c: diet.c - eaten.c };
+    const bar = (label, v, t, unit) => {
+      const pct = t ? Math.min(100, (v / t) * 100) : 0;
+      const over = v > t * 1.05;
+      return `<div class="dbar ${over ? 'over' : ''}"><div class="bar-label"><span>${label}</span><b>${r0(v)} / ${r0(t)} ${unit}</b></div><div class="bar"><span style="width:${pct}%"></span></div>
+        <span class="muted small">${over ? `ponad cel o ${r0(v - t)} ${unit}` : `zostało ${r0(t - v)} ${unit}`}</span></div>`;
+    };
+    const entries = diary.date === todayISO() ? diary.entries : [];
+    // propozycje na resztę dnia
+    const picks = RECIPES.map(matchRecipe)
+      .filter((m) => m.pct >= 50 && m.fit && m.fit.score >= 60 && m.per.kcal <= Math.max(150, rem.kcal) * 1.1)
+      .sort((a, b) => (b.pct - a.pct) || (b.fit.score - a.fit.score)).slice(0, 3);
+    el.innerHTML = `<div class="card diet-panel">
+      <div class="card-head"><h3>🥗 Dziś · ${esc(DIET_TYPES[diet.type]?.label || 'dieta')}</h3><button class="btn small" data-diet-edit>Edytuj dietę</button></div>
+      <div class="dbars">
+        ${bar('🔥 Kalorie', eaten.kcal, diet.kcal, 'kcal')}
+        ${bar('Białko', eaten.p, diet.p, 'g')}
+        ${bar('Tłuszcz', eaten.f, diet.f, 'g')}
+        ${bar('Węglowodany', eaten.c, diet.c, 'g')}
+      </div>
+      ${entries.length ? `<ul class="diary">${entries.map((e) => `<li><span>${esc(e.name)} <span class="muted small">${r0(e.kcal)} kcal · B ${r0(e.p)} g</span></span><button class="icon-btn" data-del-entry="${e.id}" aria-label="Usuń z dziennika">×</button></li>`).join('')}</ul>`
+        : '<p class="muted small">Nic jeszcze dziś nie zapisano. Kliknij „🍴 Zjadłem porcję” albo „Ugotowane” przy posiłku.</p>'}
+      ${rem.kcal > 100 ? `<div class="picks"><span class="small"><b>Pasuje na resztę dnia</b> (zostało ${r0(rem.kcal)} kcal, ${r0(Math.max(0, rem.p))} g białka):</span>
+        ${picks.length ? picks.map((m) => `<button class="chip" data-recipe="${m.recipe.id}">${m.recipe.emoji} ${esc(m.recipe.name)} · ${r0(m.per.kcal)} kcal</button>`).join('') : '<span class="muted small">brak przepisów z tego, co masz — dokup składniki z sugestii.</span>'}</div>` : ''}
+    </div>`;
+  }
+  $('#dietPanel').addEventListener('click', (e) => {
+    if (e.target.closest('[data-diet-edit]')) return openDietDialog();
+    const del = e.target.closest('[data-del-entry]');
+    if (del) { diary.entries = diary.entries.filter((x) => x.id !== del.dataset.delEntry); saveDiary(); render(); return; }
+    const r = e.target.closest('[data-recipe]');
+    if (r) openRecipe(r.dataset.recipe);
+  });
+
+  // ---------- Dialog diety ----------
+  const dtDialog = $('#dietDialog'), dtForm = $('#dietForm');
+  $('#dietType').innerHTML = Object.entries(DIET_TYPES).map(([k, v]) => `<option value="${k}">${v.label}</option>`).join('');
+  function readDietForm() {
+    return { sex: dtForm.sex.value, age: +dtForm.age.value || 30, height: +dtForm.height.value || 170, weight: +dtForm.weight.value || 70, activity: +dtForm.activity.value || 1.375, goal: dtForm.goal.value, type: dtForm.type.value };
+  }
+  function fillTargets() {
+    const t = calcTargets(readDietForm());
+    dtForm.kcal.value = t.kcal; dtForm.p.value = t.p; dtForm.f.value = t.f; dtForm.c.value = t.c;
+    $('#dietCalcNote').textContent = `Przemiana podstawowa ok. ${t.bmr} kcal, z aktywnością ok. ${t.tdee} kcal. Cele możesz zmienić ręcznie.`;
+  }
+  function openDietDialog() {
+    dtForm.reset();
+    const d = diet || {};
+    ['sex', 'age', 'height', 'weight', 'activity', 'goal', 'type'].forEach((k) => { if (d[k] != null) dtForm[k].value = d[k]; });
+    if (diet) { dtForm.kcal.value = d.kcal; dtForm.p.value = d.p; dtForm.f.value = d.f; dtForm.c.value = d.c; $('#dietCalcNote').textContent = ''; }
+    else fillTargets();
+    dtDialog.showModal();
+  }
+  $('#btnCalcDiet').addEventListener('click', fillTargets);
+  ['sex', 'age', 'height', 'weight', 'activity', 'goal', 'type'].forEach((k) => dtForm[k].addEventListener('change', fillTargets));
+  dtForm.addEventListener('submit', (e) => {
+    if (e.submitter && e.submitter.value === 'cancel') return;
+    e.preventDefault();
+    saveDiet({ ...readDietForm(), kcal: +dtForm.kcal.value, p: +dtForm.p.value, f: +dtForm.f.value, c: +dtForm.c.value });
+    dtDialog.close(); render(); toast('Zapisano dietę — posiłki są teraz oceniane pod Twoje cele');
+  });
+
   function renderMeals() {
+    renderDietPanel();
     $('#mealsEmpty').hidden = state.meals.length > 0;
     const meals = [...state.meals].sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
     $('#mealList').innerHTML = meals.map((meal) => {
       const st = mealStatus(meal);
       const sug = mealSuggestions(meal, st);
+      const mm = mealMacros(meal.items, meal.servings);
+      const fit = dietFit(mm.per, meal.type, mm.cats);
       const ei = st.earliest ? expiryInfo(st.earliest) : null;
       return `
       <article class="meal" data-meal="${meal.id}">
@@ -808,6 +1045,8 @@
           </div>
           ${ei ? `<div class="eat-by ${ei.cls}"><span class="small">Zjedz do</span><b>${fmtDate(st.earliest)}</b></div>` : ''}
         </div>
+        <div class="meal-macros">${macroLine(mm.per)} <span class="muted small">/ porcja</span> ${fitBadge(fit)}</div>
+        ${fit && fit.issues.length ? `<ul class="fit-issues">${fit.issues.map((i) => `<li>${esc(i)}</li>`).join('')}</ul>` : ''}
         <ul class="meal-ings">
           ${st.rows.map(({ it, p, ok }) => `<li class="${ok ? '' : 'missing'}">
             <span>${esc(it.emoji)} ${esc(it.name)}</span>
@@ -822,6 +1061,7 @@
         ${meal.notes ? `<details><summary>Notatki</summary><p class="notes">${esc(meal.notes).replace(/\n/g, '<br>')}</p></details>` : ''}
         <div class="row">
           <button class="btn primary" data-cook="${meal.id}" ${st.missing === st.rows.length ? 'disabled' : ''}>✓ Ugotowane</button>
+          <button class="btn" data-eat-meal="${meal.id}" title="Zapisz 1 porcję w dzienniku diety (bez zużywania produktów)">🍴 Zjadłem porcję</button>
           <button class="btn" data-edit-meal="${meal.id}">Edytuj</button>
           <span class="spacer"></span>
           <button class="btn danger ghost" data-del-meal="${meal.id}">Usuń</button>
@@ -832,8 +1072,13 @@
   $('#mealList').addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.openRecipe) return openRecipe(b.dataset.openRecipe);
-    const meal = state.meals.find((m) => m.id === (b.dataset.cook || b.dataset.editMeal || b.dataset.delMeal));
+    const meal = state.meals.find((m) => m.id === (b.dataset.cook || b.dataset.editMeal || b.dataset.delMeal || b.dataset.eatMeal));
     if (!meal) return;
+    if (b.dataset.eatMeal) {
+      logEaten(meal.name, mealMacros(meal.items, meal.servings).per);
+      render(); toast(`Zapisano porcję: ${meal.name}`);
+      return;
+    }
     if (b.dataset.editMeal) openMealDialog(meal);
     if (b.dataset.delMeal && await askConfirm(`Usunąć posiłek „${meal.name}”?`)) {
       del('meals', meal.id); render(); toast('Usunięto posiłek');
@@ -842,6 +1087,7 @@
   });
   function cookMeal(meal) {
     if (sync.readOnly) return toast('Masz tylko podgląd — nie możesz zmieniać tej lodówki.');
+    if (diet) logEaten(meal.name, mealMacros(meal.items, meal.servings).per);
     let cost = 0, rescuedValue = 0;
     const gone = [];
     meal.items.forEach((it) => {
@@ -859,7 +1105,7 @@
     put('meals', { ...meal, cooked: (meal.cooked || 0) + 1 });
     render();
     const saved = Math.max(0, eatOut - cost);
-    toast(`Smacznego!${saved ? ` Zaoszczędzono ok. ${zl0(saved)} względem jedzenia na mieście.` : ''}${gone.length ? ` Skończyło się: ${gone.join(', ')}.` : ''}`);
+    toast(`Smacznego!${diet ? ' Twoja porcja jest w dzienniku diety.' : ''}${saved ? ` Zaoszczędzono ok. ${zl0(saved)} względem jedzenia na mieście.` : ''}${gone.length ? ` Skończyło się: ${gone.join(', ')}.` : ''}`);
   }
   $('#btnNewMeal').addEventListener('click', () => openMealDialog());
   $('#btnNewMeal2').addEventListener('click', () => openMealDialog());
@@ -1059,7 +1305,7 @@
   function itemRow(it = {}, editing = false) {
     const cat = it.category && CATEGORIES[it.category] ? it.category : guessCategoryFromName(it.name || '');
     const food = it.food !== false;
-    return `<div class="rec-item">
+    return `<div class="rec-item" ${it.nut ? `data-nut="${esc(JSON.stringify(it.nut))}"` : ''}>
       <input class="ri-name" placeholder="Nazwa produktu" value="${esc(it.name || '')}" aria-label="Nazwa" required>
       <span class="ri-qty"><input type="number" min="0" step="any" value="${it.qty ?? 1}" aria-label="Ilość"><select aria-label="Jednostka">${['szt', 'g', 'kg', 'ml', 'l', 'opak'].map((u) => `<option ${u === (it.unit || 'szt') ? 'selected' : ''}>${u}</option>`).join('')}</select></span>
       <input class="ri-price" type="number" min="0" step="0.01" placeholder="0,00" value="${it.price ?? ''}" aria-label="Cena">
@@ -1115,12 +1361,13 @@
         name: $('.ri-name', row).value.trim(), qty: parseFloat(qtyEl.value) || 1, unit: unitEl.value,
         price: round2(parseFloat($('.ri-price', row).value) || 0), category: $('.ri-cat', row).value,
         toFridge: $('.ri-fridge input', row).checked,
+        nut: row.dataset.nut ? JSON.parse(row.dataset.nut) : null,
       };
     }).filter((r) => r.name);
     if (!rows.length) { toast('Dodaj przynajmniej jedną pozycję'); return; }
     const store = recForm.store.value.trim();
     const old = recForm.id.value && state.receipts.find((r) => r.id === recForm.id.value);
-    const items = rows.map(({ toFridge, ...r }) => r);
+    const items = rows.map(({ toFridge, nut, ...r }) => r);
     const rec = old ? { ...old, store, date: recForm.date.value, items } : { id: uid(), at: Date.now(), by: sync.myId, store, date: recForm.date.value, items };
     if (!put('receipts', rec)) return;
     let added = 0;
@@ -1130,6 +1377,7 @@
         id: uid(), addedAt: Date.now(), by: sync.myId, name: r.name, category: r.category, emoji: '',
         qty: r.qty, unit: r.unit, expiry: addDays(c.shelfDays), code: '', store,
         unitPrice: r.price && r.qty ? r.price / r.qty : 0, receiptId: rec.id,
+        ...(r.nut ? { nut: r.nut } : {}),
       });
       added++;
     });
@@ -1166,7 +1414,7 @@
       const cats = Object.keys(CATEGORIES).join(', ');
       const data = await sync.sample.json(
         `Na zdjęciu jest paragon ze sklepu (najczęściej z Polski). Odczytaj go i odpowiedz wyłącznie obiektem JSON w tym kształcie:
-{"store":"Biedronka","date":"2026-11-05","items":[{"name":"Mleko 2% 1l","qty":1,"unit":"szt","price":3.49,"category":"nabial","food":true}]}
+{"store":"Biedronka","date":"2026-11-05","items":[{"name":"Mleko 2% 1l","qty":1,"unit":"l","price":3.49,"category":"nabial","food":true,"kcal":50,"p":3.4,"f":2,"c":4.8,"unitG":1000}]}
 Zasady:
 - store: nazwa sklepu (krótko, np. Lidl, Biedronka, Żabka).
 - date: data zakupu w formacie RRRR-MM-DD; jeśli nieczytelna, wpisz "".
@@ -1175,6 +1423,8 @@ Zasady:
 - qty i unit: ilość i jednostka (szt, g, kg, ml, l, opak); przy produktach na wagę użyj kg.
 - category: jedna z: ${cats}.
 - food: true dla jedzenia i napojów, false dla chemii, kosmetyków, toreb itp.
+- kcal, p, f, c: typowe wartości odżywcze na 100 g lub 100 ml (kalorie, białko, tłuszcz, węglowodany) — Twój najlepszy szacunek dla tego produktu; dla produktów niespożywczych pomiń.
+- unitG: waga jednej sztuki lub opakowania w gramach, gdy unit to szt lub opak.
 - Pomiń sumy, podatki, kaucje i płatności.`,
         { images: [img], modelTier: 'default' }
       );
@@ -1182,6 +1432,7 @@ Zasady:
       const items = data.items.map((it) => ({
         name: String(it.name || '').slice(0, 60), qty: Number(it.qty) || 1, unit: ['szt', 'g', 'kg', 'ml', 'l', 'opak'].includes(it.unit) ? it.unit : 'szt',
         price: round2(it.price), category: CATEGORIES[it.category] ? it.category : guessCategoryFromName(it.name), food: it.food !== false,
+        nut: Number.isFinite(+it.kcal) && it.kcal !== null && it.kcal !== undefined ? { kcal: +it.kcal || 0, p: +it.p || 0, f: +it.f || 0, c: +it.c || 0, unit: +it.unitG || 100 } : null,
       })).filter((i) => i.name);
       openReceiptDialog(null, { store: String(data.store || '').slice(0, 40), date: data.date, items });
     } catch (err) {
@@ -1350,6 +1601,18 @@ Zasady:
         scheduleRender();
       }, onErr);
     });
+    if (sync.myId) {
+      const col = db.collection('data/users/' + sync.myId);
+      col.doc('diet').onSnapshot((snap) => {
+        if (snap.exists) diet = snap.data();
+        else if (diet && !snap.metadata.fromCache) saveDiet(diet); // przenieś dietę z przeglądarki
+        scheduleRender();
+      }, () => { });
+      col.doc('day-' + todayISO()).onSnapshot((snap) => {
+        if (snap.exists) { const d = snap.data(); diary = { date: d.date || todayISO(), entries: [...(d.entries || [])] }; }
+        scheduleRender();
+      }, () => { });
+    }
     db.doc('meta/settings').onSnapshot((snap) => {
       state.settings = { ...DEFAULT_SETTINGS, ...(snap.exists ? snap.data() : {}) };
       scheduleRender();
