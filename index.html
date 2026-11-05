@@ -1,0 +1,241 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Lodówka+ — Twoja wirtualna lodówka</title>
+  <meta name="description" content="Wirtualna lodówka: skanuj produkty kodem QR, pilnuj dat ważności i twórz posiłki z tego, co masz.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-logo" aria-hidden="true">🧊</span>
+      <span class="brand-name">Lodówka<span class="accent">+</span></span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab active" data-view="fridge" role="tab">🥛 <span>Lodówka</span></button>
+      <button class="tab" data-view="scan" role="tab">📷 <span>Skanuj</span></button>
+      <button class="tab" data-view="meals" role="tab">🍳 <span>Posiłki</span></button>
+      <button class="tab" data-view="ideas" role="tab">💡 <span>Sugestie</span></button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ LODÓWKA ============ -->
+    <section id="view-fridge" class="view active">
+      <div class="hero">
+        <div>
+          <h1>Twoja wirtualna lodówka</h1>
+          <p class="muted">Wszystko, co masz w domu — z datami ważności w jednym miejscu.</p>
+        </div>
+        <div class="stats" id="stats"></div>
+      </div>
+
+      <div id="alerts"></div>
+
+      <div class="toolbar">
+        <input type="search" id="search" placeholder="Szukaj produktu…" aria-label="Szukaj produktu">
+        <select id="filterCat" aria-label="Kategoria"></select>
+        <select id="sortBy" aria-label="Sortowanie">
+          <option value="expiry">Sortuj: data ważności</option>
+          <option value="name">Sortuj: nazwa</option>
+          <option value="added">Sortuj: ostatnio dodane</option>
+        </select>
+        <button class="btn primary" id="btnAddManual">+ Dodaj ręcznie</button>
+      </div>
+
+      <div class="grid" id="productList"></div>
+      <div class="empty" id="fridgeEmpty" hidden>
+        <div class="empty-icon">🫙</div>
+        <h3>Lodówka jest pusta</h3>
+        <p class="muted">Zeskanuj kod QR produktu albo dodaj go ręcznie.</p>
+        <div class="row center">
+          <button class="btn primary" data-goto="scan">📷 Skanuj produkt</button>
+          <button class="btn" id="btnDemo">Wczytaj przykładowe produkty</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SKANOWANIE ============ -->
+    <section id="view-scan" class="view">
+      <h1>Skanuj produkt</h1>
+      <p class="muted">Skieruj aparat na kod QR lub kod kreskowy produktu. Rozpoznamy go i dodamy do lodówki.</p>
+
+      <div class="scan-layout">
+        <div class="card">
+          <div id="reader" class="reader">
+            <div class="reader-placeholder">
+              <div class="scan-frame"></div>
+              <p>Aparat jest wyłączony</p>
+            </div>
+          </div>
+          <div class="row">
+            <button class="btn primary" id="btnStartScan">▶ Włącz aparat</button>
+            <button class="btn" id="btnStopScan" disabled>■ Zatrzymaj</button>
+            <label class="btn file-btn">🖼 Skanuj ze zdjęcia
+              <input type="file" accept="image/*" id="scanFile" hidden>
+            </label>
+          </div>
+          <p class="hint" id="scanStatus">Wskazówka: działa na telefonie i komputerze z kamerą (wymaga HTTPS lub localhost).</p>
+
+          <div class="divider"><span>lub wpisz kod</span></div>
+          <form class="row" id="codeForm">
+            <input type="text" id="codeInput" placeholder="np. 5900820000011 lub treść kodu QR" required>
+            <button class="btn" type="submit">Szukaj</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h3>Przykładowe kody QR do testów</h3>
+          <p class="muted small">Otwórz stronę na telefonie i zeskanuj kod z ekranu komputera — albo po prostu kliknij kod.</p>
+          <div class="qr-samples" id="qrSamples"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ POSIŁKI ============ -->
+    <section id="view-meals" class="view">
+      <div class="hero">
+        <div>
+          <h1>Twoje posiłki</h1>
+          <p class="muted">Składaj dania z produktów z lodówki. Po ugotowaniu składniki same znikną z zapasów.</p>
+        </div>
+        <button class="btn primary" id="btnNewMeal">+ Nowy posiłek</button>
+      </div>
+      <div class="meal-list" id="mealList"></div>
+      <div class="empty" id="mealsEmpty" hidden>
+        <div class="empty-icon">🍽️</div>
+        <h3>Brak posiłków</h3>
+        <p class="muted">Utwórz pierwszy posiłek z tego, co masz w lodówce, lub zajrzyj do sugestii.</p>
+        <div class="row center">
+          <button class="btn primary" id="btnNewMeal2">+ Nowy posiłek</button>
+          <button class="btn" data-goto="ideas">💡 Zobacz sugestie</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SUGESTIE ============ -->
+    <section id="view-ideas" class="view">
+      <h1>Co dziś ugotować?</h1>
+      <p class="muted">Przepisy dopasowane do zawartości Twojej lodówki — najpierw te, które ratują produkty z kończącą się datą.</p>
+      <div class="chips" id="mealTypeChips">
+        <button class="chip active" data-type="all">Wszystkie</button>
+        <button class="chip" data-type="śniadanie">🌅 Śniadanie</button>
+        <button class="chip" data-type="obiad">🍲 Obiad</button>
+        <button class="chip" data-type="kolacja">🌙 Kolacja</button>
+        <button class="chip" data-type="przekąska">🥨 Przekąska</button>
+      </div>
+      <div id="rescueBox"></div>
+      <div class="grid ideas" id="ideaList"></div>
+    </section>
+  </main>
+
+  <footer class="footer muted small">
+    Lodówka+ · dane przechowywane lokalnie w Twojej przeglądarce ·
+    <button class="link" id="btnReset">Wyczyść dane</button>
+  </footer>
+
+  <!-- ============ MODAL: produkt ============ -->
+  <dialog id="productDialog" class="modal">
+    <form method="dialog" id="productForm">
+      <h2 id="productDialogTitle">Dodaj produkt</h2>
+      <div class="scanned-info" id="scannedInfo" hidden></div>
+      <label>Nazwa
+        <input name="name" required maxlength="60" placeholder="np. Mleko 2%">
+      </label>
+      <div class="form-row">
+        <label>Kategoria
+          <select name="category" id="productCategory"></select>
+        </label>
+        <label>Emoji
+          <input name="emoji" maxlength="4" placeholder="🥛">
+        </label>
+      </div>
+      <div class="form-row">
+        <label>Ilość
+          <input name="qty" type="number" min="0" step="any" value="1" required>
+        </label>
+        <label>Jednostka
+          <select name="unit">
+            <option>szt</option><option>g</option><option>kg</option>
+            <option>ml</option><option>l</option><option>opak</option>
+          </select>
+        </label>
+      </div>
+      <label>Data ważności
+        <input name="expiry" type="date" required>
+      </label>
+      <div class="quick-dates" id="quickDates">
+        <button type="button" data-days="1">+1 dzień</button>
+        <button type="button" data-days="3">+3 dni</button>
+        <button type="button" data-days="7">+tydzień</button>
+        <button type="button" data-days="30">+miesiąc</button>
+        <button type="button" data-days="180">+pół roku</button>
+      </div>
+      <input type="hidden" name="code">
+      <input type="hidden" name="id">
+      <div class="modal-actions">
+        <button class="btn danger" type="button" id="btnDeleteProduct" hidden>Usuń</button>
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save" id="btnSaveProduct">Zapisz</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL: posiłek ============ -->
+  <dialog id="mealDialog" class="modal wide">
+    <form method="dialog" id="mealForm">
+      <h2 id="mealDialogTitle">Nowy posiłek</h2>
+      <div class="form-row">
+        <label>Nazwa dania
+          <input name="name" required maxlength="60" placeholder="np. Omlet ze szpinakiem">
+        </label>
+        <label>Rodzaj
+          <select name="type">
+            <option value="śniadanie">Śniadanie</option>
+            <option value="obiad">Obiad</option>
+            <option value="kolacja">Kolacja</option>
+            <option value="przekąska">Przekąska</option>
+          </select>
+        </label>
+      </div>
+      <label>Porcje
+        <input name="servings" type="number" min="1" max="20" value="2">
+      </label>
+      <h4>Składniki z lodówki</h4>
+      <p class="muted small">Zaznacz produkty i podaj, ile zużyjesz.</p>
+      <div class="ingredient-picker" id="ingredientPicker"></div>
+      <label>Notatki / sposób przygotowania
+        <textarea name="notes" rows="3" placeholder="Opcjonalnie"></textarea>
+      </label>
+      <input type="hidden" name="id">
+      <div class="modal-actions">
+        <span class="spacer"></span>
+        <button class="btn" value="cancel" formnovalidate>Anuluj</button>
+        <button class="btn primary" value="save">Zapisz posiłek</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ============ MODAL: przepis ============ -->
+  <dialog id="recipeDialog" class="modal wide">
+    <div id="recipeBody"></div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="btn" id="btnCloseRecipe">Zamknij</button>
+      <button class="btn primary" id="btnRecipeToMeal">Dodaj jako posiłek</button>
+    </div>
+  </dialog>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="data.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

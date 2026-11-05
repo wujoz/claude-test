@@ -1,0 +1,22 @@
+# Lodówka+ — wirtualna lodówka
+
+Strona/aplikacja webowa do zarządzania zawartością lodówki.
+
+## Funkcje
+- **Lodówka** – lista produktów z ilością, kategorią i datą ważności (kolory: OK / kończy się / po terminie), wyszukiwanie, filtrowanie, sortowanie, szybka zmiana ilości.
+- **Skanowanie** – kamera telefonu/komputera czyta kody QR i kody kreskowe (EAN). Obsługiwane:
+  - kody z lokalnej bazy demo,
+  - dowolne kody EAN – wyszukiwane w otwartej bazie Open Food Facts,
+  - kody QR z danymi JSON, np. `{"name":"Mleko","category":"nabial","qty":1,"unit":"l","days":7}`,
+  - skanowanie ze zdjęcia lub ręczne wpisanie kodu.
+- **Posiłki** – tworzenie dań z produktów z lodówki, data „zjedz do” (wg najszybciej psującego się składnika), sugestie do każdego dania, przycisk „Ugotowane” odejmuje zużyte składniki.
+- **Sugestie** – przepisy dopasowane do zawartości lodówki (śniadanie/obiad/kolacja/przekąska), w pierwszej kolejności ratujące produkty z kończącą się datą, z krokami przygotowania i wskazówkami.
+
+Dane zapisywane są lokalnie w przeglądarce (localStorage).
+
+## Uruchomienie
+Statyczna strona – wystarczy serwer HTTP:
+```
+python3 -m http.server 8000
+```
+i otwórz http://localhost:8000. Kamera wymaga HTTPS lub localhost (np. GitHub Pages).
