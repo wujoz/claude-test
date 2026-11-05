@@ -15,7 +15,11 @@ Strona/aplikacja webowa do zarządzania zawartością lodówki.
 Dane zapisywane są lokalnie w przeglądarce (localStorage).
 
 ## Uruchomienie
-Statyczna strona – wystarczy serwer HTTP:
+Najprościej: otwórz plik `index.html` (to jeden samodzielny plik – style i skrypty są w środku).
+
+Kod źródłowy jest w `src/`; po zmianach uruchom `python3 build.py`, żeby ponownie złożyć `index.html`.
+
+Aby działał podgląd z kamery, uruchom serwer HTTP:
 ```
 python3 -m http.server 8000
 ```

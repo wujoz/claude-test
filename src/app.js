@@ -63,6 +63,20 @@
     toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
+  // ---------- Potwierdzenie (zamiast confirm()) ----------
+  function askConfirm(msg, okLabel = 'Usuń') {
+    const d = $('#confirmDialog');
+    $('#confirmText').textContent = msg;
+    $('#confirmYes').textContent = okLabel;
+    return new Promise((resolve) => {
+      const done = (v) => { d.close(); $('#confirmYes').onclick = $('#confirmNo').onclick = null; resolve(v); };
+      $('#confirmYes').onclick = () => done(true);
+      $('#confirmNo').onclick = () => done(false);
+      d.oncancel = () => resolve(false);
+      d.showModal();
+    });
+  }
+
   // ---------- Nawigacja ----------
   function showView(name) {
     $$('.tab').forEach((t) => t.classList.toggle('active', t.dataset.view === name));
@@ -236,10 +250,10 @@
     save(); pDialog.close(); render();
   });
 
-  $('#btnDeleteProduct').addEventListener('click', () => {
+  $('#btnDeleteProduct').addEventListener('click', async () => {
     const id = pForm.id.value;
     const p = productById(id);
-    if (p && confirm(`Usunąć „${p.name}” z lodówki?`)) {
+    if (p && await askConfirm(`Usunąć „${p.name}” z lodówki?`)) {
       state.products = state.products.filter((x) => x.id !== id);
       save(); pDialog.close(); render(); toast('Usunięto produkt');
     }
@@ -273,7 +287,7 @@
       $('#btnStartScan').disabled = true; $('#btnStopScan').disabled = false;
       $('#scanStatus').textContent = 'Skanowanie… Ustaw kod w ramce.';
     } catch (err) {
-      $('#scanStatus').textContent = 'Brak dostępu do aparatu. Zezwól na użycie kamery lub skanuj ze zdjęcia.';
+      $('#scanStatus').textContent = 'Podgląd z aparatu jest tu niedostępny. Użyj przycisku „Zrób zdjęcie kodu” — telefon otworzy aparat.';
     }
   }
   async function stopScan() {
@@ -624,13 +638,13 @@
     }).join('');
   }
 
-  $('#mealList').addEventListener('click', (e) => {
+  $('#mealList').addEventListener('click', async (e) => {
     const b = e.target.closest('button'); if (!b) return;
     if (b.dataset.openRecipe) return openRecipe(b.dataset.openRecipe);
     const meal = state.meals.find((m) => m.id === (b.dataset.cook || b.dataset.editMeal || b.dataset.delMeal));
     if (!meal) return;
     if (b.dataset.editMeal) openMealDialog(meal);
-    if (b.dataset.delMeal && confirm(`Usunąć posiłek „${meal.name}”?`)) {
+    if (b.dataset.delMeal && await askConfirm(`Usunąć posiłek „${meal.name}”?`)) {
       state.meals = state.meals.filter((m) => m !== meal); save(); render(); toast('Usunięto posiłek');
     }
     if (b.dataset.cook) {
@@ -664,8 +678,8 @@
     });
     save(); render(); toast('Wczytano przykładowe produkty');
   });
-  $('#btnReset').addEventListener('click', () => {
-    if (confirm('Usunąć wszystkie produkty i posiłki?')) {
+  $('#btnReset').addEventListener('click', async () => {
+    if (await askConfirm('Usunąć wszystkie produkty i posiłki?', 'Wyczyść')) {
       state = { products: [], meals: [] }; save(); render(); toast('Wyczyszczono dane');
     }
   });
