@@ -157,6 +157,7 @@
     db: null, user: null, sample: null,
     myId: null,
     readOnly: false,
+    canReadImages: false,
     status: 'local',    // local | connecting | ok | stale | error
     loaded: {},         // col -> true po pierwszym potwierdzonym odczycie
   };
@@ -505,11 +506,18 @@
     pForm.code.value = data.code || '';
     pForm.id.value = isEdit ? p.id : '';
     fillNut(isEdit ? nutOf(p) : (data.nut || lookupNut(data.name || '', category)));
+    setExpirySrc(isEdit ? p.expirySrc : (data.expirySrc || 'estimate'), data.expiryNote);
+    $('#btnLabelQr').hidden = !isEdit;
+    $('#btnExpiryPhoto').hidden = !sync.canReadImages;
     $('#nutBox').dataset.touched = (isEdit && p.nut) || data.nut ? '1' : '';
     const info = $('#scannedInfo');
     if (scanned && scanned._source) {
       info.hidden = false;
-      info.innerHTML = `✅ Rozpoznano kod <code>${esc(scanned.code || '')}</code> · ${esc(scanned._source)}. Sprawdź datę ważności na opakowaniu.`;
+      const extra = [scanned.batch && `partia ${esc(scanned.batch)}`, scanned.netWeightG && `${scanned.netWeightG} g`].filter(Boolean).join(' · ');
+      info.innerHTML = `✅ Rozpoznano kod <code>${esc(scanned.code || '')}</code> · ${esc(scanned._source)}${extra ? ` · ${extra}` : ''}.<br>${
+        scanned.expirySrc === 'code' ? '📅 Datę ważności odczytaliśmy z kodu — nic nie musisz wpisywać.'
+        : scanned.expirySrc === 'learned' ? '🧠 Ten kod nie ma daty, więc ustawiliśmy ją tak jak ostatnim razem dla tego produktu.'
+        : '≈ Kod nie zawiera daty — to szacunek. Sprawdź opakowanie albo zrób zdjęcie daty.'}`;
     } else if (scanned && scanned.code) {
       info.hidden = false;
       info.innerHTML = `ℹ️ Nie znaleźliśmy kodu <code>${esc(scanned.code)}</code> w bazie — uzupełnij dane ręcznie.`;
@@ -518,6 +526,16 @@
     setTimeout(() => (pForm.name.value ? pForm.expiry : pForm.name).focus(), 50);
   }
 
+  const EXP_SRC = { code: '📅 z kodu', learned: '🧠 zapamiętana', estimate: '≈ szacunek', photo: '📸 ze zdjęcia', manual: '✍️ wpisana' };
+  function setExpirySrc(src, note) {
+    const el = $('#expirySrc');
+    pForm.dataset.expirySrc = src || '';
+    el.hidden = !src || !EXP_SRC[src];
+    el.className = 'exp-src ' + (src || '');
+    el.textContent = EXP_SRC[src] || '';
+    el.title = note || '';
+  }
+  pForm.expiry.addEventListener('input', () => setExpirySrc('manual'));
   function fillNut(n) {
     pForm.nkcal.value = n.kcal ?? ''; pForm.np.value = n.p ?? ''; pForm.nf.value = n.f ?? ''; pForm.nc.value = n.c ?? ''; pForm.nunit.value = n.unit ?? '';
     nutSummary();
@@ -532,17 +550,17 @@
   pForm.category.addEventListener('change', refreshNutEstimate);
   pForm.name.addEventListener('input', refreshNutEstimate);
   pForm.category.addEventListener('change', () => {
-    if (!pForm.id.value) pForm.expiry.value = addDays(CATEGORIES[pForm.category.value].shelfDays);
+    if (!pForm.id.value && ['estimate', ''].includes(pForm.dataset.expirySrc || '')) pForm.expiry.value = addDays(CATEGORIES[pForm.category.value].shelfDays);
   });
   pForm.name.addEventListener('change', () => {
     if (!pForm.id.value && pForm.category.value === 'inne') {
       const c = guessCategoryFromName(pForm.name.value);
-      if (c !== 'inne') { pForm.category.value = c; pForm.expiry.value = addDays(CATEGORIES[c].shelfDays); }
+      if (c !== 'inne') { pForm.category.value = c; if (['estimate', ''].includes(pForm.dataset.expirySrc || '')) pForm.expiry.value = addDays(CATEGORIES[c].shelfDays); }
     }
   });
   $('#quickDates').addEventListener('click', (e) => {
     const b = e.target.closest('[data-days]');
-    if (b) pForm.expiry.value = addDays(b.dataset.days);
+    if (b) { pForm.expiry.value = addDays(b.dataset.days); setExpirySrc('manual'); }
   });
 
   pForm.addEventListener('submit', (e) => {
@@ -556,7 +574,9 @@
       qty, unit: f.unit.value, expiry: f.expiry.value, code: f.code.value,
       store: f.store.value.trim(),
       unitPrice: price > 0 && qty > 0 ? price / qty : 0,
+      expirySrc: pForm.dataset.expirySrc || 'manual',
     };
+    learnShelfLife(entry);
     if (f.nkcal.value !== '') {
       entry.nut = { kcal: +f.nkcal.value || 0, p: +f.np.value || 0, f: +f.nf.value || 0, c: +f.nc.value || 0, unit: +f.nunit.value || 100 };
     }
@@ -577,6 +597,17 @@
     pDialog.close(); render();
   });
 
+  /* Zapamiętaj, ile dni zwykle jest ważny produkt o danym kodzie EAN (dla domowników też) */
+  function learnShelfLife(entry) {
+    const code = /^\d{8,14}$/.test(entry.code || '') ? entry.code : null;
+    if (!code || pForm.id.value || entry.expirySrc === 'estimate') return;
+    const days = daysLeft(entry.expiry);
+    if (days < 0 || days > 3650) return;
+    const shelf = state.settings.shelf || {};
+    if (shelf[code] === days) return;
+    putSettings({ shelf: { ...shelf, [code]: days } });
+  }
+
   $('#btnDeleteProduct').addEventListener('click', async () => {
     const p = productById(pForm.id.value);
     if (p && await askConfirm(`Usunąć „${p.name}” z lodówki? (bez zapisu do budżetu — np. gdy dodano go przez pomyłkę)`)) {
@@ -594,6 +625,49 @@
     toast(p.unitPrice ? `Zapisano stratę: ${zl(p.unitPrice * p.qty)}` : 'Zapisano jako zmarnowane');
   });
   $('#btnAddManual').addEventListener('click', () => openProductDialog());
+
+  /* Data ze zdjęcia nadruku na opakowaniu (Claude) */
+  $('#btnExpiryPhoto').addEventListener('click', () => $('#expiryFile').click());
+  $('#expiryFile').addEventListener('change', async (e) => {
+    const file = e.target.files[0]; e.target.value = '';
+    if (!file || !sync.sample) return;
+    const btn = $('#btnExpiryPhoto');
+    btn.disabled = true; btn.textContent = '⏳ Czytam datę…';
+    try {
+      const img = await shrinkImage(file, 1400);
+      const r = await sync.sample.json(
+        `Na zdjęciu jest fragment opakowania produktu spożywczego z nadrukiem daty (np. „Należy spożyć do”, „Najlepiej spożyć przed”, „EXP”, „BBE”, „Data min. trwałości”). Dzisiaj jest ${todayISO()}. Odczytaj tę datę i odpowiedz tylko JSON:
+{"date":"2026-11-20","kind":"use_by","raw":"20.11.26"}
+- date: RRRR-MM-DD; gdy jest tylko miesiąc i rok, podaj ostatni dzień miesiąca; gdy rok ma 2 cyfry, to 20RR; gdy nie ma daty albo jest nieczytelna, wpisz "".
+- kind: "use_by" (należy spożyć do), "best_before" (najlepiej spożyć przed) albo "unknown".
+- raw: dokładnie tekst daty z opakowania.
+Jeśli widać kilka dat (np. produkcji i ważności), wybierz datę ważności.`,
+        { images: [img], modelTier: 'quick' }
+      );
+      if (r && /^\d{4}-\d{2}-\d{2}$/.test(r.date || '')) {
+        pForm.expiry.value = r.date;
+        setExpirySrc('photo', r.raw ? `Odczytano: ${r.raw}` : '');
+        toast(`Odczytano datę: ${fmtDate(r.date)}${r.kind === 'best_before' ? ' (najlepiej spożyć przed)' : ''}`);
+      } else toast('Nie widać daty na zdjęciu. Zrób zdjęcie bliżej, przy dobrym świetle.');
+    } catch (err) {
+      toast(err && err.code === 'not_granted' ? 'Bez zgody na użycie Claude nie odczytamy daty — wpisz ją ręcznie.' : 'Nie udało się odczytać daty. Spróbuj jeszcze raz.');
+    } finally { btn.disabled = false; btn.textContent = '📸 Odczytaj datę z opakowania'; }
+  });
+
+  /* Etykieta QR z datą (np. na słoik z domowym jedzeniem) */
+  $('#btnLabelQr').addEventListener('click', () => {
+    const p = productById(pForm.id.value); if (!p) return;
+    const payload = { name: p.name, category: p.category, expiry: pForm.expiry.value || p.expiry, qty: p.qty, unit: p.unit };
+    if (p.emoji) payload.emoji = p.emoji;
+    if (/^\d{8,14}$/.test(p.code || '')) payload.code = p.code;
+    const box = $('#labelPreview');
+    box.innerHTML = `<div class="qr big" id="labelQr"></div><b>${esc(p.name)}</b><span>Ważne do: ${fmtDate(payload.expiry)}</span>`;
+    const text = JSON.stringify(payload);
+    if (window.QRCode) new QRCode($('#labelQr'), { text, width: 200, height: 200, correctLevel: QRCode.CorrectLevel.M });
+    else $('#labelQr').innerHTML = `<code>${esc(text)}</code>`;
+    $('#labelDialog').showModal();
+  });
+  $('#btnCloseLabel').addEventListener('click', () => $('#labelDialog').close());
 
   // ================= Skanowanie =================
   let scanner = null;
@@ -674,33 +748,75 @@
         const d = JSON.parse(text);
         if (d.name) {
           const cat = CATEGORIES[d.category] ? d.category : guessCategoryFromName(d.name);
-          return openProductDialog(null, { name: d.name, category: cat, qty: d.qty ?? 1, unit: d.unit || 'szt', emoji: d.emoji, expiry: d.expiry, days: d.days, price: d.price, code: d.code || 'QR', _source: 'dane z kodu QR' });
+          const learnedJ = d.code && state.settings.shelf && state.settings.shelf[d.code];
+          return openProductDialog(null, {
+            name: d.name, category: cat, qty: d.qty ?? 1, unit: d.unit || 'szt', emoji: d.emoji, price: d.price, nut: d.nut, code: d.code || 'QR', _source: 'etykieta QR',
+            expiry: d.expiry || (d.days != null ? addDays(d.days) : learnedJ != null ? addDays(learnedJ) : undefined),
+            expirySrc: d.expiry || d.days != null ? 'code' : learnedJ != null ? 'learned' : 'estimate',
+          });
         }
       } catch (_) { }
     }
+    // Kod GS1 (2D / GS1-128 / Digital Link) — może zawierać datę ważności
+    const gs = GS1.parse(text);
+    if (gs) return openFromCode(gs.gtin, gs, 'kod GS1');
     const digits = text.replace(/\s/g, '');
-    if (/^\d{8,14}$/.test(digits)) {
-      if (PRODUCT_DB[digits]) return openProductDialog(null, { ...PRODUCT_DB[digits], code: digits, _source: 'baza Lodówka+' });
-      $('#scanStatus').textContent = `Szukam kodu ${digits}…`;
-      const found = await lookupOpenFoodFacts(digits);
-      $('#scanStatus').textContent = 'Gotowe. Możesz zeskanować kolejny produkt.';
-      return openProductDialog(null, found ? { ...found, code: digits, _source: 'Open Food Facts' } : { code: digits });
-    }
+    if (/^\d{8,14}$/.test(digits)) return openFromCode(digits, null, null);
     openProductDialog(null, { name: text.slice(0, 60), category: guessCategoryFromName(text), _source: 'tekst z kodu', code: 'QR' });
   }
+  /* Dane produktu po kodzie + data ważności: z kodu → zapamiętana → szacunek */
+  async function openFromCode(code, gs, kind) {
+    let base = null, source = null;
+    if (code && PRODUCT_DB[code]) { base = { ...PRODUCT_DB[code] }; source = 'baza Lodówka+'; }
+    else if (code) {
+      const mine = [...state.products].reverse().find((p) => p.code === code);
+      if (mine) { base = { name: mine.name, category: mine.category, emoji: mine.emoji, qty: mine.qty, unit: mine.unit, nut: mine.nut, store: mine.store }; source = 'Twoje produkty'; }
+      else {
+        $('#scanStatus').textContent = `Szukam kodu ${code}…`;
+        base = await lookupOpenFoodFacts(code);
+        $('#scanStatus').textContent = 'Gotowe. Możesz zeskanować kolejny produkt.';
+        if (base) source = 'Open Food Facts';
+      }
+    }
+    const data = { ...(base || {}), code: code || 'GS1' };
+    if (!data.category) data.category = 'inne';
+    if (gs && gs.netWeightG) { data.qty = gs.netWeightG; data.unit = 'g'; }
+    if (gs && gs.count) { data.qty = gs.count; data.unit = 'szt'; }
+    if (gs) { data.batch = gs.batch; data.netWeightG = gs.netWeightG; }
+    const fromCode = gs && (gs.expiry || gs.bestBefore || gs.sellBy);
+    const learned = code && state.settings.shelf && state.settings.shelf[code];
+    if (fromCode) {
+      data.expiry = fromCode; data.expirySrc = 'code';
+      data.expiryNote = gs.expiry ? 'Należy spożyć do (AI 17)' : gs.bestBefore ? 'Najlepiej spożyć przed (AI 15)' : 'Sprzedać do (AI 16)';
+    } else if (learned != null) {
+      data.expiry = addDays(learned); data.expirySrc = 'learned';
+    } else {
+      const days = data.days ?? CATEGORIES[data.category]?.shelfDays ?? 14;
+      data.expiry = gs && (gs.prodDate || gs.packDate) ? addDays(days, new Date((gs.prodDate || gs.packDate) + 'T00:00:00')) : addDays(days);
+      data.expirySrc = 'estimate';
+    }
+    data._source = source || (kind ? 'kod GS1' : null);
+    if (!data._source) delete data._source;
+    openProductDialog(null, data);
+  }
+
   function renderQrSamples() {
     const box = $('#qrSamples');
     if (box.dataset.ready) return;
     box.dataset.ready = '1';
     const sample = ['5900820000011', '5900820000028', '5900820000042', '5900820000080', '5900820000059', '5900820000103'];
-    box.innerHTML = sample.map((code) => {
-      const p = PRODUCT_DB[code];
-      return `<button class="qr-sample" data-code="${code}" title="Kliknij, aby „zeskanować”"><div class="qr" id="qr-${code}"></div><span>${p.emoji} ${esc(p.name)}</span></button>`;
-    }).join('');
-    sample.forEach((code) => {
-      const el = document.getElementById(`qr-${code}`);
-      if (window.QRCode) new QRCode(el, { text: code, width: 108, height: 108, correctLevel: QRCode.CorrectLevel.M });
-      else el.innerHTML = `<code>${code}</code>`;
+    const yymmdd = (n) => addDays(n).replace(/-/g, '').slice(2);
+    const items = [
+      { id: 'g1', text: GS1.digitalLink({ gtin: '5900820000073', expiry: addDays(9), batch: 'J0412' }), label: '🥣 Jogurt · GS1 z datą', dated: true },
+      { id: 'g2', text: `(01)05900820000042(17)${yymmdd(3)}(10)K77(3103)000620`, label: '🍗 Kurczak 620 g · GS1 z datą', dated: true },
+      { id: 'g3', text: `(01)05900820000158(15)${yymmdd(12)}`, label: '🧀 Twaróg · GS1 z datą', dated: true },
+      ...sample.slice(0, 3).map((code) => ({ id: code, text: code, label: `${PRODUCT_DB[code].emoji} ${PRODUCT_DB[code].name} · EAN` })),
+    ];
+    box.innerHTML = items.map((it) => `<button class="qr-sample ${it.dated ? 'dated' : ''}" data-code="${esc(it.text)}" title="Kliknij, aby „zeskanować”"><div class="qr" id="qr-${it.id}"></div><span>${esc(it.label)}</span></button>`).join('');
+    items.forEach((it) => {
+      const el = document.getElementById(`qr-${it.id}`);
+      if (window.QRCode) new QRCode(el, { text: it.text, width: 108, height: 108, correctLevel: QRCode.CorrectLevel.M });
+      else el.innerHTML = `<code>${esc(it.text.slice(0, 24))}</code>`;
     });
     box.addEventListener('click', (e) => { const b = e.target.closest('[data-code]'); if (b) handleCode(b.dataset.code); });
   }
@@ -1580,6 +1696,7 @@ Zasady:
       sync.sample = sample;
       const lim = await sample.limits().catch(() => null);
       $('#btnReceiptPhoto').hidden = !(lim && lim.images);
+      sync.canReadImages = !!(lim && lim.images);
       $('#btnAskClaude').hidden = false;
     }
     if (!db) { render(); return; }

@@ -86,7 +86,24 @@
           </form>
         </div>
 
-        <div class="card">
+        <div class="card help-card">
+          <h3>📅 Skąd bierzemy datę ważności</h3>
+          <ol class="exp-flow">
+            <li><b>Kod 2D z datą (GS1).</b> Nowe opakowania mają kody QR lub DataMatrix z datą ważności i numerem partii — data wpisuje się sama. <span class="exp-src code">📅 z kodu</span></li>
+            <li><b>Zwykły kod kreskowy (EAN).</b> Nie zawiera daty. Bierzemy tyle dni, ile ten produkt był ważny ostatnim razem, gdy go dodawałeś. <span class="exp-src learned">🧠 zapamiętana</span></li>
+            <li><b>Pierwszy raz?</b> Szacujemy datę po rodzaju produktu. Możesz zrobić zdjęcie nadruku z datą — Claude ją odczyta. <span class="exp-src estimate">≈ szacunek</span></li>
+          </ol>
+          <details class="small">
+            <summary>Obsługiwane formaty kodów</summary>
+            <ul class="formats">
+              <li>GS1 DataMatrix / GS1 QR / GS1-128: <code>(01)05901234123457(17)261231(10)PARTIA</code> — AI 17 = należy spożyć do, 15 = najlepiej spożyć przed, 16 = sprzedać do, 10 = partia, 310n = waga netto.</li>
+              <li>GS1 Digital Link: <code>https://id.gs1.org/01/05901234123457/10/PARTIA?17=261231</code></li>
+              <li>Etykieta Lodówki+ (JSON): <code>{"name":"Zupa","category":"inne","expiry":"2026-11-20"}</code> — przycisk „🏷️ Etykieta QR” przy produkcie tworzy taki kod, np. na słoik z domowym jedzeniem.</li>
+            </ul>
+          </details>
+        </div>
+
+        <div class="card samples-card">
           <h3>Przykładowe kody QR do testów</h3>
           <p class="muted small">Otwórz stronę na telefonie i zeskanuj kod z ekranu komputera — albo po prostu kliknij kod.</p>
           <div class="qr-samples" id="qrSamples"></div>
@@ -226,9 +243,13 @@
           <input name="store" list="storeList" maxlength="40" placeholder="np. Biedronka">
         </label>
       </div>
-      <label>Data ważności
+      <label>Data ważności <span class="exp-src" id="expirySrc" hidden></span>
         <input name="expiry" type="date" required>
       </label>
+      <div class="exp-tools">
+        <button type="button" class="btn small" id="btnExpiryPhoto" hidden>📸 Odczytaj datę z opakowania</button>
+        <input type="file" accept="image/*" capture="environment" id="expiryFile" hidden>
+      </div>
       <div class="quick-dates" id="quickDates">
         <button type="button" data-days="1">+1 dzień</button>
         <button type="button" data-days="3">+3 dni</button>
@@ -256,6 +277,7 @@
       </div>
       <div class="modal-actions">
         <button class="btn danger ghost" type="button" id="btnDeleteProduct" hidden>Usuń</button>
+        <button class="btn ghost" type="button" id="btnLabelQr" hidden>🏷️ Etykieta QR</button>
         <span class="spacer"></span>
         <button class="btn" value="cancel" formnovalidate>Anuluj</button>
         <button class="btn primary" value="save" id="btnSaveProduct">Zapisz</button>
@@ -453,6 +475,17 @@
         <button class="btn primary" value="save">Zapisz dietę</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- ============ MODAL: etykieta QR ============ -->
+  <dialog id="labelDialog" class="modal">
+    <h2>🏷️ Etykieta QR</h2>
+    <p class="muted small">Zeskanuj ten kod w Lodówce+, a produkt doda się z nazwą i datą ważności. Zrób zrzut ekranu i wydrukuj albo pokaż domownikowi.</p>
+    <div class="label-preview" id="labelPreview"></div>
+    <div class="modal-actions">
+      <span class="spacer"></span>
+      <button class="btn primary" id="btnCloseLabel">Zamknij</button>
+    </div>
   </dialog>
 
   <datalist id="storeList"></datalist>

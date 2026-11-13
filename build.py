@@ -15,7 +15,7 @@ head = '''<title>Lodówka+</title>
 body = (src / 'body.html').read_text()
 scripts = ('<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>\n'
            '<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>\n'
-           '<script>\n' + (src / 'data.js').read_text() + '\n' + (src / 'app.js').read_text() + '</script>\n')
+           '<script>\n' + (src / 'data.js').read_text() + '\n' + (src / 'gs1.js').read_text() + '\n' + (src / 'app.js').read_text() + '</script>\n')
 content = head + body + scripts
 
 full = ('<!doctype html>\n<html lang="pl">\n<head>\n<meta charset="utf-8">\n'

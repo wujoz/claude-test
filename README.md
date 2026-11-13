@@ -9,6 +9,11 @@ Strona/aplikacja webowa do zarządzania zawartością lodówki.
   - dowolne kody EAN – wyszukiwane w otwartej bazie Open Food Facts,
   - kody QR z danymi JSON, np. `{"name":"Mleko","category":"nabial","qty":1,"unit":"l","days":7}`,
   - skanowanie ze zdjęcia lub ręczne wpisanie kodu.
+- **Data ważności bez wpisywania** (`src/gs1.js`):
+  - kody GS1 (DataMatrix, QR, GS1-128 i GS1 Digital Link) – data ważności (AI 17), „najlepiej spożyć przed” (AI 15), „sprzedać do” (AI 16), partia (AI 10) i waga netto (AI 310n) wpisują się same,
+  - zwykły EAN nie zawiera daty – aplikacja zapamiętuje, ile dni produkt o danym kodzie był ważny ostatnio (wspólne dla domowników), a za pierwszym razem szacuje po kategorii,
+  - w wersji online datę można odczytać ze zdjęcia nadruku na opakowaniu (Claude),
+  - przycisk „🏷️ Etykieta QR” tworzy kod z nazwą i datą, np. na słoik z domowym jedzeniem.
 - **Posiłki** – tworzenie dań z produktów z lodówki, data „zjedz do” (wg najszybciej psującego się składnika), sugestie do każdego dania, przycisk „Ugotowane” odejmuje zużyte składniki.
 - **Sugestie** – przepisy dopasowane do zawartości lodówki (śniadanie/obiad/kolacja/przekąska), w pierwszej kolejności ratujące produkty z kończącą się datą, z krokami przygotowania i wskazówkami.
 

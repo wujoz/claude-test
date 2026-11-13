@@ -462,3 +462,20 @@ button.hist-row:hover b { color: var(--primary); }
   .form-row.three { grid-template-columns: 1fr 1fr; }
   #ideaSort { margin-left: 0; width: 100%; }
 }
+
+/* ---------- Data ważności: źródło ---------- */
+.exp-src { display: inline-block; font-size: .72rem; font-weight: 700; padding: .1rem .5rem; border-radius: 99px; margin-left: .3rem; background: var(--surface-2); color: var(--muted); vertical-align: middle; }
+.exp-src.code, .exp-src.photo { background: var(--primary-soft); color: var(--ok); }
+.exp-src.learned { background: color-mix(in srgb, var(--primary) 12%, var(--surface-2)); color: var(--text); }
+.exp-src.estimate { background: var(--soon-soft); color: var(--soon); }
+.exp-tools { display: flex; gap: .4rem; flex-wrap: wrap; margin: -.4rem 0 .6rem; }
+.exp-tools:has(> :not([hidden])) { margin-bottom: .6rem; }
+.help-card { box-shadow: none; }
+.samples-card { grid-column: 1 / -1; }
+.qr code { display: block; max-width: 108px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-flow { margin: .5rem 0 .6rem; padding-left: 1.2rem; display: grid; gap: .45rem; font-size: .92rem; }
+.formats { padding-left: 1.1rem; display: grid; gap: .4rem; margin: .5rem 0 0; }
+.formats code { word-break: break-all; }
+.qr-sample.dated { border-color: color-mix(in srgb, var(--primary) 45%, var(--border)); background: var(--primary-soft); }
+.label-preview { display: flex; flex-direction: column; align-items: center; gap: .3rem; padding: 1rem; background: #fff; color: #111; border-radius: 14px; border: 1px dashed var(--border); }
+.qr.big img, .qr.big canvas { width: 200px; height: 200px; }
